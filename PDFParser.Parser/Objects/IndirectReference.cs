@@ -13,6 +13,6 @@ public readonly struct IndirectReference
 
     public override string ToString()
     {
-        return $"{ObjectNumber} {Generation}";
+        return $"obj: {ObjectNumber} {Generation}";
     }
 }

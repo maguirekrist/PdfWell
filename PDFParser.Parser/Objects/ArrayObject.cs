@@ -8,4 +8,21 @@ public class ArrayObject : DirectObject
     {
         Objects = objects;
     }
+
+    public DirectObject this[int index] => Objects[index];
+
+    public T GetAs<T>(int index) where T : DirectObject
+    {
+        if (index >= Objects.Count)
+        {
+            throw new IndexOutOfRangeException();
+        }
+
+        if (Objects[index] is T result)
+        {
+            return result;
+        }
+
+        throw new InvalidCastException($"The value at index '{index}' is not of type {typeof(T).Name}.");
+    }
 }

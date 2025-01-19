@@ -17,8 +17,24 @@ public class DictionaryObject : DirectObject
     
     public DirectObject? this[string key]
     {
-        get => _dictionary[new NameObject(key)];
+        get => _dictionary.GetValueOrDefault(new NameObject(key));
         set => _dictionary[new NameObject(key)] = value ?? throw new ArgumentNullException();
+    }
+
+    public T GetAs<T>(string key) where T : DirectObject
+    {
+        var namedKey = new NameObject(key);
+        if (!_dictionary.TryGetValue(namedKey, out var value))
+        {
+            throw new KeyNotFoundException($"Key '{key}' was not found in the dictionary.");
+        }
+
+        if (value is T result)
+        {
+            return result;
+        }
+
+        throw new InvalidCastException($"The value for key '{key}' is not of type {typeof(T).Name}.");
     }
     
 }

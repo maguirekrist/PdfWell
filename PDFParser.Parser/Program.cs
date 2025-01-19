@@ -8,4 +8,5 @@ var parser = new PdfParser(fileBytes);
 
 var document = parser.Parse();
 
+Console.WriteLine(document.Pages.Count);
 //win!

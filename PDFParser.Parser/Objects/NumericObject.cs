@@ -4,8 +4,17 @@ public class NumericObject : DirectObject
 {
     public double Value { get; }
     
-    public NumericObject(double value, long offset, long length) : base(offset, length)
+    public NumericObject(double value, long offset, long length, bool? isFraction = false) : base(offset, length)
     {
-        Value = value;
+        if (isFraction == true)
+        {
+            var numDigits = value.ToString().Length;
+            var multiplier = System.Math.Pow(10, -numDigits);
+            Value = value * multiplier;
+        }
+        else
+        {
+            Value = value;   
+        }
     }
 }

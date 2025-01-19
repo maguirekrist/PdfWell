@@ -16,20 +16,18 @@ public class PdfParser
     public PdfDocument Parse()
     {
         var startXref = FindStartXrefOffset(_memoryReader);
-        // Console.WriteLine($"Found begin xref at {startXref} byte offset.");
         _memoryReader.Seek(0);
 
         var xrefTable = ParseXrefTable(_memoryReader, startXref);
-        //
-        // var objects = new List<DirectObject>();
-        //
-        // foreach (var (key, val) in xrefTable.ObjectOffsets)
-        // {
-        //     objects.Add(ParseObjectByReference(_memoryReader, key, xrefTable));
-        // }
-        //
-        // return new PdfDocument(objects);
-        return new PdfDocument([]);
+
+        var objectTable = new Dictionary<IndirectReference, DirectObject>();
+        
+        foreach (var (key, val) in xrefTable.ObjectOffsets)
+        {
+            objectTable.Add(key, ParseObjectByReference(_memoryReader, key, xrefTable));
+        }
+
+        return new PdfDocument(objectTable);
     }
 
     private static string FindPdfVersion(MemoryInputBytes inputBytes)
@@ -92,28 +90,35 @@ public class PdfParser
         var offset = table.ObjectOffsets[objectReference];
         inputBytes.Seek(offset);
         inputBytes.ReadLine();
-        var dObject = ParseDirectObject(inputBytes);
 
-        if (dObject is DictionaryObject dictionaryObject && dictionaryObject.IsStream)
+        try
         {
-            //TODO: Read the stream
-            var lengthObject = dictionaryObject["Length"];
-            if (lengthObject != null && lengthObject is NumericObject lengthNumeric)
+            var dObject = ParseDirectObject(inputBytes);
+            if (dObject is DictionaryObject dictionaryObject && dictionaryObject.IsStream)
             {
-                var streamLength = (int)lengthNumeric.Value;
-                dictionaryObject.Stream = ParseStreamObject(inputBytes, (int)lengthNumeric.Value);
-                inputBytes.Seek(inputBytes.CurrentOffset + streamLength);
-                inputBytes.MoveNext();
-                var endStreamLine = inputBytes.ReadLine();
-                Debug.Assert(endStreamLine.SequenceEqual("endstream"u8));
+                //TODO: Read the stream
+                var lengthObject = dictionaryObject["Length"];
+                if (lengthObject != null && lengthObject is NumericObject lengthNumeric)
+                {
+                    var streamLength = (int)lengthNumeric.Value;
+                    dictionaryObject.Stream = ParseStreamObject(inputBytes, (int)lengthNumeric.Value);
+                    inputBytes.Seek(inputBytes.CurrentOffset + streamLength);
+                    inputBytes.MoveNext();
+                    var endStreamLine = inputBytes.ReadLine();
+                    Debug.Assert(endStreamLine.SequenceEqual("endstream"u8));
+                }
+                else
+                {
+                    throw new UnreachableException();
+                }
             }
-            else
-            {
-                throw new UnreachableException();
-            }
-        }
         
-        return dObject;
+            return dObject;
+        }
+        catch (Exception ex)
+        {
+            throw new Exception($"Exception was thrown trying to parse object: {objectReference}", ex);
+        }
     }
 
     private static StreamObject ParseStreamObject(MemoryInputBytes inputBytes, int length)
@@ -170,6 +175,66 @@ public class PdfParser
         throw new Exception("Failed parsing dictionary.");
     }
 
+    private static DirectObject ParseNumericObject(MemoryInputBytes inputBytes)
+    {
+        var begin = inputBytes.CurrentOffset;
+        var sign = 1;
+        var isFraction = false;
+        
+        switch (inputBytes.CurrentChar)
+        {
+            case '-':
+                sign = -1;
+                inputBytes.MoveNext();
+                break;
+            case '+':
+                sign = +1;
+                inputBytes.MoveNext();
+                break;
+            case '.':
+                isFraction = true;
+                inputBytes.MoveNext();
+                break;
+        }
+        
+        var number = inputBytes.ReadNumeric();
+        switch (inputBytes.CurrentChar)
+        {
+            case ' ':
+                //It's we need to peek for a reference, which is a 3 byte look ahead.
+                var refByte = inputBytes.LookAhead(3);
+                if (refByte == 'R')
+                {
+                    //Ok we are parsing a reference
+                    inputBytes.MoveNext();
+                    var genNumber = inputBytes.ReadNumeric();
+                    inputBytes.MoveNext();
+                    inputBytes.MoveNext();
+                
+                    return new ReferenceObject(new IndirectReference(int.Parse(number), int.Parse(genNumber)),
+                        begin, inputBytes.CurrentOffset - begin);
+                }
+                else
+                {
+                    //We are probably in an array just parsing a number, or it's just a random white space.
+                    return new NumericObject(sign * double.Parse(number), begin, inputBytes.CurrentOffset - begin, isFraction);
+                }
+            case '.':
+                //still a number...
+                
+                inputBytes.MoveNext();
+                var trailing = inputBytes.ReadNumeric();
+                Span<byte> tempBuffer = stackalloc byte[number.Length + trailing.Length + 1];
+                number.CopyTo(tempBuffer);
+                tempBuffer[number.Length] = (byte)'.';
+                trailing.CopyTo(tempBuffer[(number.Length + 1)..]);
+                return new NumericObject(sign * double.Parse(tempBuffer), begin,  inputBytes.CurrentOffset - begin);
+            default:
+                //we are done parsing the number I think...
+                return new NumericObject(sign * double.Parse(number), begin, inputBytes.CurrentOffset - begin, isFraction);
+        }
+    }
+
     private static NameObject ParseNameObject(MemoryInputBytes inputBytes)
     {
         if (inputBytes.CurrentByte != '/')
@@ -193,7 +258,24 @@ public class PdfParser
 
     public static DirectObject ParseStringObject(MemoryInputBytes inputBytes)
     {
-        throw new NotImplementedException();
+        Debug.Assert(inputBytes.CurrentChar is '(' or '<');
+        var begin = inputBytes.CurrentOffset;
+        ReadOnlySpan<byte> value;
+        switch (inputBytes.CurrentChar)
+        {
+            case '(':
+                value = inputBytes.ReadUntil(")"u8);
+                break;
+            case '<':
+                value = inputBytes.ReadUntil(">"u8);
+                break;
+            default:
+                throw new UnreachableException();
+        }
+        
+        Debug.Assert(inputBytes.CurrentChar is ')' or '>');
+
+        return new StringObject(inputBytes.Slice((int)begin + 1, (int)(inputBytes.CurrentOffset - begin)), begin, inputBytes.CurrentOffset - begin);
     }
 
     public static DirectObject ParseArrayObject(MemoryInputBytes inputBytes)
@@ -226,10 +308,8 @@ public class PdfParser
                 }
                 else
                 {
-                    //TODO: Parse the Hexadecimal data stream
-                    throw new NotImplementedException();
+                    return ParseStringObject(inputBytes);
                 }
-                break;
             case '/':
                 return ParseNameObject(inputBytes);
             case '(':
@@ -237,49 +317,10 @@ public class PdfParser
             case '[':
                 return ParseArrayObject(inputBytes);
             case var digit when char.IsDigit(digit):
-                //Could be a numeric object or it could be a reference
-                var begin = inputBytes.CurrentOffset;
-                var number = inputBytes.ReadNumeric();
-                switch (inputBytes.CurrentChar)
-                {
-                    case ' ':
-                        //It's we need to peek for a reference, which is a 3 byte look ahead.
-                        var refByte = inputBytes.LookAhead(3);
-                        if (refByte == 'R')
-                        {
-                            //Ok we are parsing a reference
-                            inputBytes.MoveNext();
-                            var genNumber = inputBytes.ReadNumeric();
-                            inputBytes.MoveNext();
-                            inputBytes.MoveNext();
-                        
-                            return new ReferenceObject(new IndirectReference(int.Parse(number), int.Parse(genNumber)),
-                                begin, inputBytes.CurrentOffset - begin);
-                        }
-                        else
-                        {
-                            //We are probably in an array just parsing a number, or it's just a random white space.
-                            return new NumericObject(double.Parse(number), begin, inputBytes.CurrentOffset - begin);
-                        }
-                    case '.':
-                        //still a number...
-                        inputBytes.MoveNext();
-                        var trailing = inputBytes.ReadNumeric();
-                        Span<byte> tempBuffer = stackalloc byte[number.Length + trailing.Length + 1];
-                        number.CopyTo(tempBuffer);
-                        tempBuffer[number.Length] = (byte)'.';
-                        trailing.CopyTo(tempBuffer[(number.Length + 1)..]);
-                        return new NumericObject(double.Parse(tempBuffer), begin,  inputBytes.CurrentOffset - begin);
-                    default:
-                        //we are done parsing the number I think...
-                        return new NumericObject(double.Parse(number), begin, inputBytes.CurrentOffset - begin);
-                }
-                break;
             case '+':
             case '-':
             case '.':
-                throw new NotImplementedException();
-                break;
+                return ParseNumericObject(inputBytes);
             case ' ':
                 //I think we try to parse again... after moving one space
                 inputBytes.MoveNext();
@@ -287,7 +328,5 @@ public class PdfParser
             default:
                 throw new Exception($"Unable to parse object");
         }
-
-        throw new Exception("Unable to parse object.");
     }
 }
