@@ -1,0 +1,34 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PDFParser.Parser", "PDFParser.Parser\PDFParser.Parser.csproj", "{ECE03698-B4EF-4D3F-839B-60ACD2F8DA2B}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tests", "tests", "{935416DC-A965-402B-BEB9-949D72C9BD70}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PDFParser.Tests", "PDFParser.Tests\PDFParser.Tests.csproj", "{FB8558CD-3413-488A-BEAB-96E91915CC72}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PDFParser.Benchmark", "PDFParser.Benchmark\PDFParser.Benchmark.csproj", "{1A113331-8EC5-4DC4-A8D5-7C508DD5532E}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{ECE03698-B4EF-4D3F-839B-60ACD2F8DA2B}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{ECE03698-B4EF-4D3F-839B-60ACD2F8DA2B}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{ECE03698-B4EF-4D3F-839B-60ACD2F8DA2B}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{ECE03698-B4EF-4D3F-839B-60ACD2F8DA2B}.Release|Any CPU.Build.0 = Release|Any CPU
+		{FB8558CD-3413-488A-BEAB-96E91915CC72}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{FB8558CD-3413-488A-BEAB-96E91915CC72}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{FB8558CD-3413-488A-BEAB-96E91915CC72}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{FB8558CD-3413-488A-BEAB-96E91915CC72}.Release|Any CPU.Build.0 = Release|Any CPU
+		{1A113331-8EC5-4DC4-A8D5-7C508DD5532E}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{1A113331-8EC5-4DC4-A8D5-7C508DD5532E}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{1A113331-8EC5-4DC4-A8D5-7C508DD5532E}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{1A113331-8EC5-4DC4-A8D5-7C508DD5532E}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{FB8558CD-3413-488A-BEAB-96E91915CC72} = {935416DC-A965-402B-BEB9-949D72C9BD70}
+		{1A113331-8EC5-4DC4-A8D5-7C508DD5532E} = {935416DC-A965-402B-BEB9-949D72C9BD70}
+	EndGlobalSection
+EndGlobal
