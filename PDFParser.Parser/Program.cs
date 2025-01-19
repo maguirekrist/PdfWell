@@ -6,4 +6,6 @@ var fileBytes = File.ReadAllBytes(args[0]);
 
 var parser = new PdfParser(fileBytes);
 
-parser.Parse();
+var document = parser.Parse();
+
+//win!

@@ -13,25 +13,23 @@ public class PdfParser
         _memoryReader = new MemoryInputBytes(pdfData);
     }
     
-    public void Parse()
+    public PdfDocument Parse()
     {
         var startXref = FindStartXrefOffset(_memoryReader);
         // Console.WriteLine($"Found begin xref at {startXref} byte offset.");
         _memoryReader.Seek(0);
 
         var xrefTable = ParseXrefTable(_memoryReader, startXref);
-
-        var objects = new List<DirectObject>();
-
+        //
+        // var objects = new List<DirectObject>();
+        //
         // foreach (var (key, val) in xrefTable.ObjectOffsets)
         // {
         //     objects.Add(ParseObjectByReference(_memoryReader, key, xrefTable));
         // }
-        var resultObject = ParseObjectByReference(_memoryReader, new IndirectReference(6, 0), xrefTable);
-        Console.WriteLine(resultObject);
-        // var pdfVersion = FindPdfVersion(fileText);
-        // var startTrailer = FindStartTrailer(fileText);
-        //ParseXrefTable(bytes, (Index)startXref, (Index)startTrailer);
+        //
+        // return new PdfDocument(objects);
+        return new PdfDocument([]);
     }
 
     private static string FindPdfVersion(MemoryInputBytes inputBytes)

@@ -18,7 +18,9 @@ public class Tests
     [Test]
     public void CanFindXrefOffsetStart()
     {
-        _parser.Parse();
+        var document = _parser.Parse();
+        
+        Assert.That(document.Objects.Count, Is.EqualTo(6));
         // PdfParser parser = new PdfParser();
         // parser.ParsePdf2(_pdfPath);
         // Console.WriteLine(parser.GetPdfVersion());
