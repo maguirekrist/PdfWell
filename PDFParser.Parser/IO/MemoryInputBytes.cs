@@ -27,7 +27,7 @@ public class MemoryInputBytes
     
     public bool MoveNext()
     {
-        if (_currentOffset == _upperbound)
+        if (IsAtEnd())
         {
             return false;
         }
@@ -58,7 +58,7 @@ public class MemoryInputBytes
 
     public bool IsAtEnd()
     {
-        return _currentOffset == _upperbound;
+        return _currentOffset >= _upperbound;
     }
 
     public void Seek(long position)
@@ -121,7 +121,6 @@ public class MemoryInputBytes
             return false;
         }
         
-        //Console.WriteLine($"{tempBuffer.ToAscii()}");
         
         return tempBuffer.SequenceEqual(matchBytes);
     }
@@ -131,9 +130,23 @@ public class MemoryInputBytes
         //Assume we are reading at a beginning of a new line
         var begin = CurrentOffset;
         
-        var startEol = FindFirstPatternOffset("\n"u8);
+        var startEol = FindFirstPatternOffset("\n"u8);       
 
         return _memory.Span.Slice((int)begin, (int)(startEol - begin));
+    }
+
+    public void SkipWhitespace()
+    {
+        //Skips all "whitespace" ASCII codes
+        Skip(0, 9, 10, 11, 12, 13, 32);
+    }
+
+    public void Skip(params byte[] bytesToSkip)
+    {
+        while (!IsAtEnd() && Array.IndexOf(bytesToSkip, CurrentByte) != -1)
+        {
+            MoveNext();
+        }
     }
 
     public ReadOnlySpan<byte> ReadUntil(ReadOnlySpan<byte> option)

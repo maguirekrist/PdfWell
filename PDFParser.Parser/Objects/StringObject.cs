@@ -35,6 +35,7 @@ public class StringObject : DirectObject
 
     private StringType GetStringType()
     {
+        //TODO: Compute String Type
         return StringType.Ascii;
     }
 

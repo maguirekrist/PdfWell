@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "PDFParser.Parser": {
+      "commandName": "Project",
+      "commandLineArgs": "C:\\Users\\magui\\source\\repos\\PdfWell\\PDFParser.Tests\\TestPDFs\\A4.pdf"
+    }
+  }
+}

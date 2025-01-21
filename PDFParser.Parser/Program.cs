@@ -9,4 +9,9 @@ var parser = new PdfParser(fileBytes);
 var document = parser.Parse();
 
 Console.WriteLine(document.Pages.Count);
+
+var page = document.GetPage(1);
+
+var texts = page.GetTexts();
+
 //win!

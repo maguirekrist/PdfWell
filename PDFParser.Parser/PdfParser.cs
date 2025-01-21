@@ -296,7 +296,7 @@ public class PdfParser
         return new ArrayObject(objects, begin, inputBytes.CurrentOffset - begin);
     }
     
-    private static DirectObject ParseDirectObject(MemoryInputBytes inputBytes)
+    public static DirectObject ParseDirectObject(MemoryInputBytes inputBytes)
     {
         switch (inputBytes.CurrentChar)
         {
@@ -321,9 +321,8 @@ public class PdfParser
             case '-':
             case '.':
                 return ParseNumericObject(inputBytes);
-            case ' ':
-                //I think we try to parse again... after moving one space
-                inputBytes.MoveNext();
+            case var other when char.IsWhiteSpace(other):
+                inputBytes.SkipWhitespace();
                 return ParseDirectObject(inputBytes);
             default:
                 throw new Exception($"Unable to parse object");
