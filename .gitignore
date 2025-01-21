@@ -263,4 +263,5 @@ FakesAssemblies/
 *.opt
 
 .idea
+.idea/
 .idea/*
