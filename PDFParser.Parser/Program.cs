@@ -2,6 +2,7 @@
 
 using PDFParser.Parser;
 
+Console.WriteLine(args[0]);
 var fileBytes = File.ReadAllBytes(args[0]);
 
 var parser = new PdfParser(fileBytes);
@@ -13,5 +14,10 @@ Console.WriteLine(document.Pages.Count);
 var page = document.GetPage(1);
 
 var texts = page.GetTexts();
+
+foreach (var text in texts)
+{
+    Console.WriteLine(text);
+}
 
 //win!

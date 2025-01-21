@@ -14,11 +14,10 @@ public class TextState
 
     public string Value { get; set; }
 
-
-
+    
     public DocumentText GetText()
     {
-        return new DocumentText(Value, FontSize, FontKey.Name, (Matrix[0], Matrix[1]));
+        return new DocumentText(Value.Trim('\0'), FontSize, FontKey.Name, (Matrix[0], Matrix[1]));
     }
     
 }

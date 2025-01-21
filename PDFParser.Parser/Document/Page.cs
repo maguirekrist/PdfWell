@@ -13,70 +13,84 @@ public class Page
 
     public List<DocumentText> Texts => _texts.Value;
     
-    private readonly StreamObject _content;
+    private readonly List<StreamObject> _contents;
 
     private readonly Lazy<List<DocumentText>> _texts;
-    public Page(PageBox mediaBox, StreamObject content)
+    public Page(PageBox mediaBox, List<StreamObject> contents)
     {
         MediaBox = mediaBox;
-        _content = content;
+        _contents = contents;
         _texts = new Lazy<List<DocumentText>>(GetTexts);
     }
 
     public List<DocumentText> GetTexts()
     {
-        var streamReader = new MemoryInputBytes(_content.Data);
         var texts = new List<DocumentText>();
 
-        while(!streamReader.IsAtEnd())
+        foreach (var content in _contents)
         {
-            streamReader.ReadUntil(Operators.BeginText);
-            //Operands come first, which are ALWAYS DirectObjects, we can effectively parse direct objects until 
-            //a operation token is found
-            if(streamReader.IsAtEnd())
-            {
-                break;
-            }
-
-
-            var commands = new List<ITextCommand>();
-
-            while (streamReader.CurrentChar != 'E')
-            {
-                var tempList = new List<DirectObject>();
-
-                while (!streamReader.IsAtEnd() && streamReader.CurrentByte != 'T')
-                {
-                    tempList.Add(PdfParser.ParseDirectObject(streamReader));
-                    streamReader.SkipWhitespace();
-                }
-
-                streamReader.MoveNext();
-                switch (streamReader.CurrentChar)
-                {
-                    case 'm':
-                        //Text Matrix
-                        commands.Add(new SetTextMatrix(tempList));
-                        break;
-                    case 'f':
-                        //Font Face
-                        commands.Add(new SetFontFace(tempList));
-                        break;
-                    case 'J':
-                        //Text Display
-                        commands.Add(new SetText(tempList));
-
-                        break;
-                    default:
-                        throw new UnreachableException();
-                }
-            }
-
-            TextState textState = new();
-            foreach (var command in commands)
-            {
-                command.Execute(textState);
-            }
+         var streamReader = content.GetReader();
+             while(!streamReader.IsAtEnd())
+             {
+                 try
+                 {
+                     streamReader.ReadUntil(Operators.BeginText);
+                 }
+                 catch (Exception ex)
+                 {
+                     break;
+                 }
+                 //Operands come first, which are ALWAYS DirectObjects, we can effectively parse direct objects until 
+                 //a operation token is found
+                 if(streamReader.IsAtEnd())
+                 {
+                     break;
+                 }
+                 
+                 var commands = new List<ITextCommand>();
+     
+                 while (streamReader.CurrentChar != 'E')
+                 {
+                     var tempList = new List<DirectObject>();
+     
+                     while (!streamReader.IsAtEnd() && streamReader.CurrentByte != 'T')
+                     {
+                         tempList.Add(PdfParser.ParseDirectObject(streamReader));
+                         streamReader.SkipWhitespace();
+                     }
+     
+                     streamReader.MoveNext();
+                     switch (streamReader.CurrentChar)
+                     {
+                         case 'm':
+                             //Text Matrix
+                             commands.Add(new SetTextMatrix(tempList));
+                             break;
+                         case 'f':
+                             //Font Face
+                             commands.Add(new SetFontFace(tempList));
+                             break;
+                         case 'J':
+                             //Text Display
+                             commands.Add(new SetText(tempList));
+     
+                             break;
+                         default:
+                             throw new UnreachableException();
+                     }
+     
+                     streamReader.MoveNext();
+                     streamReader.SkipWhitespace();
+                 }
+     
+                 TextState textState = new();
+                 foreach (var command in commands)
+                 {
+                     command.Execute(textState);
+                 }
+     
+                 texts.Add(textState.GetText());
+             }   
         }
 
         return texts;
@@ -92,15 +106,22 @@ public class Page
         var mediaBox = new PageBox(arguments);
 
         var contents = pageDictionary.GetAs<ArrayObject>("Contents");
-        var contentRef = contents.GetAs<ReferenceObject>(0);
-        var contentDict = objects.GetAs<DictionaryObject>(contentRef.Reference);
-        var stream = contentDict.Stream;
 
-        if (stream == null)
+        var streams = new List<StreamObject>();
+
+        foreach (var contentRef in contents.Objects.OfType<ReferenceObject>())
         {
-            throw new UnreachableException();
+            var contentDict = objects.GetAs<DictionaryObject>(contentRef.Reference);
+            var stream = contentDict.Stream;
+            
+            if (stream == null)
+            {
+                throw new UnreachableException();
+            }
+
+            streams.Add(stream);
         }
         
-        return new Page(mediaBox, stream);
+        return new Page(mediaBox, streams);
     }
 }

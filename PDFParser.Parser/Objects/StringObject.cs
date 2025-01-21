@@ -1,3 +1,6 @@
+using System.Buffers;
+using System.Text;
+
 namespace PDFParser.Parser.Objects;
 
 public enum StringType
@@ -41,14 +44,41 @@ public class StringObject : DirectObject
 
     private string GetString()
     {
-        if (IsHex)
+        return IsHex ? 
+            HexToString(_data.Span.Slice(1, _data.Length - 2)) : 
+            Encoding.ASCII.GetString(_data.Span.Slice(1, _data.Length - 1));
+    }
+
+    private string HexToString(ReadOnlySpan<byte> data)
+    {
+        if (data.Length % 2 != 0)
         {
-            //TODO: Parse Hex
+            throw new ArgumentException("Invalid Hex stream!");
         }
-        else
+        
+        //TODO: Convert to Array Pool
+        var bytes = ArrayPool<byte>.Shared.Rent(data.Length / 2);
+        //byte[] bytes = new byte[data.Length / 2];
+        for (int i = 0; i < data.Length; i += 2)
         {
-            
+            int highNibble = GetHexValue((char)data[i]) << 4;
+            int lowNibble = GetHexValue((char)data[i + 1]);
+            bytes[i / 2] = (byte)(highNibble | lowNibble);
         }
-        return String.Empty;
+
+        return Encoding.Default.GetString(bytes);
+    }
+    
+    private static int GetHexValue(char hex)
+    {
+        // Convert a single HEX character to its numeric value
+        if (hex >= '0' && hex <= '9')
+            return hex - '0';
+        if (hex >= 'A' && hex <= 'F')
+            return hex - 'A' + 10;
+        if (hex >= 'a' && hex <= 'f')
+            return hex - 'a' + 10;
+
+        throw new ArgumentException($"Invalid HEX character: {hex}");
     }
 }

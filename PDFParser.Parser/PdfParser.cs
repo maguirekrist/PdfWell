@@ -98,10 +98,24 @@ public class PdfParser
             {
                 //TODO: Read the stream
                 var lengthObject = dictionaryObject["Length"];
+                var filterObject = dictionaryObject["Filter"];
+
+                StreamFilter encoding = StreamFilter.None;
+                if (filterObject != null && filterObject is NameObject filter)
+                {
+                    var filterName = filter.Name;
+                    switch (filterName)
+                    {
+                        case Filters.FlateEncoding:
+                            encoding = StreamFilter.Flate;
+                            break;
+                    }
+                }
+                
                 if (lengthObject != null && lengthObject is NumericObject lengthNumeric)
                 {
                     var streamLength = (int)lengthNumeric.Value;
-                    dictionaryObject.Stream = ParseStreamObject(inputBytes, (int)lengthNumeric.Value);
+                    dictionaryObject.Stream = ParseStreamObject(inputBytes, encoding, (int)lengthNumeric.Value);
                     inputBytes.Seek(inputBytes.CurrentOffset + streamLength);
                     inputBytes.MoveNext();
                     var endStreamLine = inputBytes.ReadLine();
@@ -121,7 +135,7 @@ public class PdfParser
         }
     }
 
-    private static StreamObject ParseStreamObject(MemoryInputBytes inputBytes, int length)
+    private static StreamObject ParseStreamObject(MemoryInputBytes inputBytes, StreamFilter encoding, int length)
     {
         //Move to the next line
         inputBytes.MoveNext();
@@ -134,7 +148,7 @@ public class PdfParser
 
         //Beginning of stream
         var begin = inputBytes.CurrentOffset;
-        return new StreamObject(inputBytes.Slice((int)begin, length), begin, length);
+        return new StreamObject(inputBytes.Slice((int)begin, length), encoding, begin, length);
     }
 
     private static DictionaryObject ParseDictionaryObject(MemoryInputBytes inputBytes)
@@ -260,22 +274,20 @@ public class PdfParser
     {
         Debug.Assert(inputBytes.CurrentChar is '(' or '<');
         var begin = inputBytes.CurrentOffset;
-        ReadOnlySpan<byte> value;
+        // ReadOnlySpan<byte> value;
         switch (inputBytes.CurrentChar)
         {
             case '(':
-                value = inputBytes.ReadUntil(")"u8);
+                inputBytes.ReadUntil(")"u8);
                 break;
             case '<':
-                value = inputBytes.ReadUntil(">"u8);
+                inputBytes.ReadUntil(">"u8);
                 break;
             default:
                 throw new UnreachableException();
         }
-        
-        Debug.Assert(inputBytes.CurrentChar is ')' or '>');
 
-        return new StringObject(inputBytes.Slice((int)begin + 1, (int)(inputBytes.CurrentOffset - begin)), begin, inputBytes.CurrentOffset - begin);
+        return new StringObject(inputBytes.Slice((int)begin, (int)(inputBytes.CurrentOffset - begin)), begin, inputBytes.CurrentOffset - begin);
     }
 
     public static DirectObject ParseArrayObject(MemoryInputBytes inputBytes)
