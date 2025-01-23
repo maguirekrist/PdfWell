@@ -41,10 +41,13 @@ public class StreamObject : DirectObject
                 return new MemoryInputBytes(Data);
             case StreamFilter.Flate:
             {
-                using var memoryStream = new MemoryStream(Data.ToArray()[2..]);
+                var rawBytes = Data.ToArray()[2..];
+                // Console.WriteLine(BitConverter.ToString(rawBytes));
+                using var memoryStream = new MemoryStream(rawBytes);
                 using var deflateStream = new DeflateStream(memoryStream, CompressionMode.Decompress);
                 using var reader = new StreamReader(deflateStream);
                 var decoded = reader.ReadToEnd();
+                //Console.WriteLine(decoded);
                 return new MemoryInputBytes(System.Text.Encoding.ASCII.GetBytes(decoded));
             }
             default:

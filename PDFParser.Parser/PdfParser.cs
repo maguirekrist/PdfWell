@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Text;
+using PDFParser.Parser.Exceptions;
 using PDFParser.Parser.IO;
 using PDFParser.Parser.Objects;
 namespace PDFParser.Parser;
@@ -112,12 +113,12 @@ public class PdfParser
                     }
                 }
                 
-                if (lengthObject != null && lengthObject is NumericObject lengthNumeric)
+                if (lengthObject is NumericObject lengthNumeric)
                 {
                     var streamLength = (int)lengthNumeric.Value;
                     dictionaryObject.Stream = ParseStreamObject(inputBytes, encoding, (int)lengthNumeric.Value);
                     inputBytes.Seek(inputBytes.CurrentOffset + streamLength);
-                    inputBytes.MoveNext();
+                    inputBytes.SkipWhitespace();
                     var endStreamLine = inputBytes.ReadLine();
                     Debug.Assert(endStreamLine.SequenceEqual("endstream"u8));
                 }
@@ -138,15 +139,17 @@ public class PdfParser
     private static StreamObject ParseStreamObject(MemoryInputBytes inputBytes, StreamFilter encoding, int length)
     {
         //Move to the next line
-        inputBytes.MoveNext();
+        //inputBytes.MoveNext();
         
-        var streamBegin = inputBytes.ReadLine();
-        if (!streamBegin.SequenceEqual("stream"u8))
+        //var streamBegin = inputBytes.ReadLine();
+        inputBytes.SkipWhitespace();
+        if (!inputBytes.Match("stream"u8))
         {
             throw new UnreachableException();
         }
 
         //Beginning of stream
+        inputBytes.SkipWhitespace();
         var begin = inputBytes.CurrentOffset;
         return new StreamObject(inputBytes.Slice((int)begin, length), encoding, begin, length);
     }
@@ -168,8 +171,16 @@ public class PdfParser
             {
                 case '/':
                     var nameObject = ParseNameObject(inputBytes);
-                    var valueObject = ParseDirectObject(inputBytes);
-                    dictionary.Add(nameObject, valueObject);
+                    try
+                    {
+                        var valueObject = ParseDirectObject(inputBytes);
+                        dictionary.Add(nameObject, valueObject);
+                    }
+                    catch (Exception ex)
+                    {
+                        throw new Exception(
+                            $"An exception occured while parsing dictionary value for key /{nameObject.Name}", ex);
+                    }
                     break;
                 case '>':
                     if (inputBytes.Peek() == '>')
@@ -259,7 +270,7 @@ public class PdfParser
         var begin = inputBytes.CurrentOffset;
         inputBytes.MoveNext();
 
-        var nameBytes = inputBytes.ReadAlpha();
+        var nameBytes = inputBytes.ReadName();
 
         if (nameBytes.Length == 0)
         {
@@ -270,7 +281,7 @@ public class PdfParser
         return new NameObject(name, begin, inputBytes.CurrentOffset - begin);
     }
 
-    public static DirectObject ParseStringObject(MemoryInputBytes inputBytes)
+    public static StringObject ParseStringObject(MemoryInputBytes inputBytes)
     {
         Debug.Assert(inputBytes.CurrentChar is '(' or '<');
         var begin = inputBytes.CurrentOffset;
@@ -279,6 +290,14 @@ public class PdfParser
         {
             case '(':
                 inputBytes.ReadUntil(")"u8);
+                
+                //Check if Escaped
+                var escapeKey = inputBytes.LookBehind(2);
+
+                if (escapeKey is 92)
+                {
+                    inputBytes.ReadUntil(")"u8);
+                }
                 break;
             case '<':
                 inputBytes.ReadUntil(">"u8);
@@ -307,6 +326,28 @@ public class PdfParser
         
         return new ArrayObject(objects, begin, inputBytes.CurrentOffset - begin);
     }
+
+    private static BooleanObject ParseBooleanObject(MemoryInputBytes inputBytes, bool parseTrue)
+    {
+        var begin = inputBytes.CurrentOffset;
+        if (inputBytes.Match(parseTrue ? "true"u8 : "false"u8))
+        {
+            return new BooleanObject(parseTrue, begin, inputBytes.CurrentOffset - begin);
+        }
+
+        throw new UnreachableException();
+    }
+
+    private static NullObject ParseNullObject(MemoryInputBytes inputBytes)
+    {
+        var begin = inputBytes.CurrentOffset;
+        if (inputBytes.Match("null"u8))
+        {
+            return new NullObject(begin, inputBytes.CurrentOffset - begin);
+        }
+
+        throw new UnreachableException();
+    }
     
     public static DirectObject ParseDirectObject(MemoryInputBytes inputBytes)
     {
@@ -333,11 +374,17 @@ public class PdfParser
             case '-':
             case '.':
                 return ParseNumericObject(inputBytes);
+            case 't':
+            case 'f':
+                return ParseBooleanObject(inputBytes, inputBytes.CurrentChar == 't');
+            case 'n':
+                //null object, which is odd but some pdf's have them
+                return ParseNullObject(inputBytes);
             case var other when char.IsWhiteSpace(other):
                 inputBytes.SkipWhitespace();
                 return ParseDirectObject(inputBytes);
             default:
-                throw new Exception($"Unable to parse object");
+                throw new UnexpectedTokenException(inputBytes);
         }
     }
 }

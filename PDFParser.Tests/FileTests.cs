@@ -7,6 +7,9 @@ public class Tests
     private const string A4 = "TestPDFs/A4.pdf";
     private const string TwoPager = "TestPDFs/two_pager.pdf";
     private const string MultiText = "TestPDFs/multi_text.pdf";
+    private const string G1145 = "TestPDFs/g-1145.pdf";
+    private const string BankStatement = "TestPDFs/Statement.pdf";
+    private const string Resume = "TestPDFs/Resume.pdf";
     
     [SetUp]
     public void Setup()
@@ -52,6 +55,44 @@ public class Tests
         var document = parser.Parse();
         
         Assert.That(document.Pages.Count, Is.EqualTo(1));
+    }
+
+    [Test]
+    public void TestGovernmentPdf()
+    {
+        var pdfData = File.ReadAllBytes(G1145);
+        var parser = new PdfParser(pdfData);
+        var document = parser.Parse();
+        
+        Assert.That(document.Pages.Count, Is.EqualTo(1));
+    }
+
+    [Test]
+    public void TestBankStatement()
+    {
+        var pdfData = File.ReadAllBytes(BankStatement);
+        var parser = new PdfParser(pdfData);
+        var document = parser.Parse();
+        
+        Assert.That(document.Pages.Count, Is.EqualTo(2));
+        foreach (var text in document.Pages[0].Texts)
+        {
+            Console.WriteLine(text);
+        }
+    }
+
+    [Test]
+    public void TestResume()
+    {
+        var pdfData = File.ReadAllBytes(Resume);
+        var parser = new PdfParser(pdfData);
+        var document = parser.Parse();
+        
+        Assert.That(document.Pages.Count, Is.EqualTo(2));
+        foreach (var text in document.Pages[0].Texts)
+        {
+            Console.WriteLine(text);
+        }
     }
     
 }

@@ -36,6 +36,17 @@ public class MemoryInputBytes
         return true;
     }
 
+    public bool StepBack()
+    {
+        if (_currentOffset == 0)
+        {
+            return false;
+        }
+
+        _currentOffset--;
+        return true;
+    }
+
     public byte? Peek()
     {
         if (_currentOffset == _upperbound)
@@ -44,6 +55,16 @@ public class MemoryInputBytes
         }
 
         return _memory.Span[_currentOffset + 1];
+    }
+
+    public byte? LookBehind(int numberOfBytes)
+    {
+        if (_currentOffset - numberOfBytes < 0)
+        {
+            return null;
+        }
+
+        return _memory.Span[_currentOffset - numberOfBytes];
     }
 
     public byte? LookAhead(int numberOfBytes)
@@ -104,6 +125,28 @@ public class MemoryInputBytes
             }
         }
 
+        throw new Exception($"Unable to find byte sequence (ASCII) {matchBytes.ToAscii()}");
+    }
+
+    public long RewindUntil(ReadOnlySpan<byte> matchBytes)
+    {
+        while (_currentOffset != 0)
+        {
+            if (!CurrentByte.Equals(matchBytes[^1]))
+            {
+                StepBack();
+                continue;
+            }
+            
+            _currentOffset -= matchBytes.Length - 1;
+            var offset = _currentOffset;
+            if (Match(matchBytes))
+            {
+                Seek(offset + 1);
+                return offset + 1;
+            }
+        }
+        
         throw new Exception($"Unable to find byte sequence (ASCII) {matchBytes.ToAscii()}");
     }
 
@@ -183,6 +226,25 @@ public class MemoryInputBytes
             }
 
             MoveNext();
+        }
+
+        throw new Exception("Numeric run continued to the end of buffer.");
+    }
+
+    //Special Function for PDF NameObject Naming Rules
+    public ReadOnlySpan<byte> ReadName()
+    {
+        var begin = CurrentOffset;
+        while (!IsAtEnd())
+        {
+            if (CurrentByte.IsNumeric() || CurrentByte.IsAlpha() || CurrentByte == '.' || CurrentByte == '#' || CurrentByte == ',' || CurrentByte == '-' || CurrentByte == '&')
+            {
+                MoveNext();
+            }
+            else
+            {
+                return _memory.Span.Slice((int) begin, (int)(CurrentOffset - begin));
+            }
         }
 
         throw new Exception("Numeric run continued to the end of buffer.");
