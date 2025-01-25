@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.IO.Compression;
+using System.Text;
 using PDFParser.Parser.Document;
 using PDFParser.Parser.IO;
 
@@ -24,18 +25,20 @@ public class StreamObject : DirectObject
     //The class user is responsible for making sense of the stream.
 
     public ReadOnlyMemory<byte> Data { get; } //This is Raw Data.
+
+    public string DecodedStream { get; private set; } = String.Empty;
     
-    public StreamFilter Encoding { get; } //Filter used
+    public StreamFilter Filter { get; } //Filter used
 
     public StreamObject(ReadOnlyMemory<byte> buffer, StreamFilter encoding, long offset, long length) : base(offset, length)
     {
         Data = buffer;
-        Encoding = encoding;
+        Filter = encoding;
     }
 
     public MemoryInputBytes GetReader()
     {
-        switch (Encoding)
+        switch (Filter)
         {
             case StreamFilter.None:
                 return new MemoryInputBytes(Data);
@@ -45,9 +48,11 @@ public class StreamObject : DirectObject
                 // Console.WriteLine(BitConverter.ToString(rawBytes));
                 using var memoryStream = new MemoryStream(rawBytes);
                 using var deflateStream = new DeflateStream(memoryStream, CompressionMode.Decompress);
-                using var reader = new StreamReader(deflateStream);
+                using var reader = new StreamReader(deflateStream, Encoding.BigEndianUnicode);
+                Console.WriteLine(reader.CurrentEncoding.EncodingName);
                 var decoded = reader.ReadToEnd();
-                //Console.WriteLine(decoded);
+                Console.WriteLine(decoded);
+                DecodedStream = decoded;
                 return new MemoryInputBytes(System.Text.Encoding.ASCII.GetBytes(decoded));
             }
             default:

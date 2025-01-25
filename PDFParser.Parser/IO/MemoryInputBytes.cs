@@ -108,24 +108,35 @@ public class MemoryInputBytes
         return readLength;
     }
 
-    public long FindFirstPatternOffset(ReadOnlySpan<byte> matchBytes)
+    public long? FindFirstPatternOffset(ReadOnlySpan<byte> matchBytes, int? maxBytesToRead = null)
     {
+        var bytesRead = 0;
         while (!IsAtEnd())
         {
+            if (maxBytesToRead != null && bytesRead > maxBytesToRead)
+            {
+                return null;
+            }
+            
             if (!CurrentByte.Equals(matchBytes[0]))
             {
                 MoveNext();
+                bytesRead++;
                 continue;
-            };
+            }
 
             var offset = CurrentOffset;
             if (Match(matchBytes))
             {
                 return offset;
             }
+            else
+            {
+                bytesRead += (int)(CurrentOffset - offset);
+            }
         }
 
-        throw new Exception($"Unable to find byte sequence (ASCII) {matchBytes.ToAscii()}");
+        return null;
     }
 
     public long RewindUntil(ReadOnlySpan<byte> matchBytes)
@@ -173,8 +184,8 @@ public class MemoryInputBytes
         //Assume we are reading at a beginning of a new line
         var begin = CurrentOffset;
         
-        var startEol = FindFirstPatternOffset("\n"u8);       
-
+        var startEol = FindFirstPatternOffset("\n"u8) ?? _currentOffset;      
+        
         return _memory.Span.Slice((int)begin, (int)(startEol - begin));
     }
 
@@ -195,7 +206,8 @@ public class MemoryInputBytes
     public ReadOnlySpan<byte> ReadUntil(ReadOnlySpan<byte> option)
     {
         var begin = CurrentOffset;
-        var startEol = FindFirstPatternOffset(option);
+        var startEol = FindFirstPatternOffset(option) ?? throw new Exception($"End of File reached while attempting find sequence: {option.ToString()}");
+        
         return _memory.Span.Slice((int)begin, (int)(startEol - begin));
     }
 
