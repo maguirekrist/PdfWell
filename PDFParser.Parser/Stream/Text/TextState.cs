@@ -9,7 +9,7 @@ public class TextState
 {
     public int[]? Matrix { get; set; }
 
-    public NameObject? FontKey { get; set; }
+    public Document.Font? Font { get; set; }
 
     public int? FontSize { get; set; }
 
@@ -18,7 +18,7 @@ public class TextState
     
     public DocumentText GetText()
     {
-        return new DocumentText(Value?.Trim('\0') ?? throw new UnreachableException(), FontSize ?? 0, FontKey?.Name ?? "Unknown", (0, 0));
+        return new DocumentText(Value?.Trim('\0') ?? throw new UnreachableException(), FontSize ?? 0, Font?.Name ?? "Unknown", (0, 0));
     }
     
 }

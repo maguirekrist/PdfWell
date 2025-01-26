@@ -26,22 +26,23 @@ public class StreamObject : DirectObject
 
     public ReadOnlyMemory<byte> Data { get; } //This is Raw Data.
 
-    public string DecodedStream { get; private set; } = String.Empty;
-    
+    public string DecodedStream { get; }
+
+    public MemoryInputBytes Reader { get; }
+
     public StreamFilter Filter { get; } //Filter used
 
     public StreamObject(ReadOnlyMemory<byte> buffer, StreamFilter encoding, long offset, long length) : base(offset, length)
     {
         Data = buffer;
         Filter = encoding;
-    }
-
-    public MemoryInputBytes GetReader()
-    {
+        
         switch (Filter)
         {
             case StreamFilter.None:
-                return new MemoryInputBytes(Data);
+                Reader = new MemoryInputBytes(Data);
+                DecodedStream = Encoding.ASCII.GetString(Data.Span);
+                break;
             case StreamFilter.Flate:
             {
                 var rawBytes = Data.ToArray()[2..];
@@ -51,7 +52,8 @@ public class StreamObject : DirectObject
                 using var reader = new StreamReader(deflateStream);
                 var decoded = reader.ReadToEnd();
                 DecodedStream = decoded;
-                return new MemoryInputBytes(System.Text.Encoding.ASCII.GetBytes(decoded));
+                Reader=  new MemoryInputBytes(Encoding.ASCII.GetBytes(decoded));
+                break;
             }
             default:
                 throw new UnreachableException();

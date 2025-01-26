@@ -1,4 +1,5 @@
 using System.Buffers;
+using System.Collections.ObjectModel;
 using System.Diagnostics;
 using PDFParser.Parser.IO;
 using PDFParser.Parser.Objects;
@@ -15,25 +16,29 @@ public class Page
     
     private readonly List<StreamObject> _contents;
 
+    private readonly Dictionary<string, Font> _fontDictionary;
+
     private readonly Lazy<List<DocumentText>> _texts;
-    public Page(PageBox mediaBox, List<StreamObject> contents)
+    public Page(PageBox mediaBox, List<StreamObject> contents, Dictionary<string, Font> fontDictionary)
     {
         MediaBox = mediaBox;
         _contents = contents;
+        _fontDictionary = fontDictionary;
         _texts = new Lazy<List<DocumentText>>(GetTexts);
     }
-    internal void AddStream(StreamObject content)
-    {
-        _contents.Add(content);
-    }
+    
+    public IReadOnlyList<StreamObject> Contents => _contents;
+
+    public ReadOnlyDictionary<string, Font> FontDictionary => _fontDictionary.AsReadOnly();
 
     public List<DocumentText> GetTexts()
     {
         var texts = new List<DocumentText>();
 
         foreach (var content in _contents)
-        { 
-            var streamReader = content.GetReader();
+        {
+            var streamReader = content.Reader;
+            var parser = new PdfParser(streamReader);
             while(!streamReader.IsAtEnd())
             {
                 try
@@ -59,7 +64,8 @@ public class Page
      
                     while (!streamReader.IsAtEnd() && streamReader.CurrentByte != 'T')
                     {
-                        tempList.Add(PdfParser.ParseDirectObject(streamReader));
+                        
+                        tempList.Add(parser.ParseDirectObject(streamReader));
                         streamReader.SkipWhitespace();
                     }
      
@@ -74,7 +80,7 @@ public class Page
                         case 'F':
                         case 'f':
                             //Font Face
-                            commands.Add(new SetFontFace(tempList));
+                            commands.Add(new SetFontFace(tempList, this));
                             break;
                         case 'j':
                         case 'J':
@@ -105,51 +111,6 @@ public class Page
         }
 
         return texts;
-    }
-
-
-    
-    //Factory Method that takes in a Dictionary
-    public static Page Create(DictionaryObject pageDictionary, Dictionary<IndirectReference, DirectObject> objects)
-    {
-        var mediaBoxArr = pageDictionary.GetAs<ArrayObject>("MediaBox");
-        var arguments = mediaBoxArr.Objects.OfType<NumericObject>().Select(x => (int)x.Value).ToArray();
-        var mediaBox = new PageBox(arguments);
-
-        var contents = pageDictionary["Contents"] ?? throw new UnreachableException();
-        var streams = new List<StreamObject>();
-
-        switch (contents)
-        {
-            case ReferenceObject contentReference:
-            {
-                AddStreamByReference(contentReference);
-                break;
-            }
-            case ArrayObject contentArray:
-            {
-                foreach (var contentRef in contentArray.Objects.OfType<ReferenceObject>())
-                {
-                    AddStreamByReference(contentRef);
-                }
-                break;
-            }
-        }
-        
-        return new Page(mediaBox, streams);
-
-        void AddStreamByReference(ReferenceObject reference)
-        {
-            var contentDict = objects.GetAs<DictionaryObject>(reference.Reference);
-            var stream = contentDict.Stream;
-
-            if (stream == null)
-            {
-                throw new UnreachableException();
-            }
-
-            streams.Add(stream);
-        }
     }
     
 }

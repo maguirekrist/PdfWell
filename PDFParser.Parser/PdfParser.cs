@@ -8,10 +8,17 @@ namespace PDFParser.Parser;
 public class PdfParser
 {
     private readonly MemoryInputBytes _memoryReader;
+    private CrossReferenceTable _crossReferenceTable = null!;
+    private Dictionary<IndirectReference, DirectObject> _objectTable = new Dictionary<IndirectReference, DirectObject>();
 
     public PdfParser(byte[] pdfData)
     {
         _memoryReader = new MemoryInputBytes(pdfData);
+    }
+
+    public PdfParser(MemoryInputBytes inputBytes)
+    {
+        _memoryReader = inputBytes;
     }
     
     public PdfDocument Parse()
@@ -37,7 +44,7 @@ public class PdfParser
 
                 if (hintStreamObject is DictionaryObject { IsStream: true, Stream: not null } streamObject)
                 {
-                    var reader = streamObject.Stream.GetReader();
+                    var reader = streamObject.Stream.Reader;
                     Console.WriteLine(streamObject.Stream.DecodedStream);
                 }
             }
@@ -60,19 +67,17 @@ public class PdfParser
         var startXref = FindStartXrefOffset(_memoryReader);
         _memoryReader.Seek(0);
 
-        var xrefTable = ParseXrefTable(_memoryReader, startXref);
-
-        var objectTable = new Dictionary<IndirectReference, DirectObject>();
+        _crossReferenceTable = ParseXrefTable(_memoryReader, startXref);
         
-        foreach (var (key, val) in xrefTable.ObjectOffsets)
+        foreach (var (key, val) in _crossReferenceTable.ObjectOffsets)
         {
-            objectTable.Add(key, ParseObjectByReference(_memoryReader, key, xrefTable));
+            _objectTable.Add(key, ParseObjectByReference(key));
         }
 
-        return new PdfDocument(objectTable);
+        return new PdfDocument(_objectTable);
     }
 
-    private static bool IsLinearized(MemoryInputBytes inputBytes)
+    private bool IsLinearized(MemoryInputBytes inputBytes)
     {
         var offset = inputBytes.FindFirstPatternOffset("/Linearized"u8, 4_000_000);
 
@@ -83,20 +88,20 @@ public class PdfParser
         return offset != null;
     }
 
-    private static DirectObject GetNextObject(MemoryInputBytes inputBytes)
+    private DirectObject GetNextObject(MemoryInputBytes inputBytes)
     {
         var objOffset = inputBytes.FindFirstPatternOffset("obj"u8);
         inputBytes.SkipWhitespace();
         return ParseDirectObject(inputBytes);
     }
     
-    private static string FindPdfVersion(MemoryInputBytes inputBytes)
+    private string FindPdfVersion(MemoryInputBytes inputBytes)
     {
         //Get the first line
         throw new NotImplementedException();
     }
 
-    private static long FindStartTrailer(MemoryInputBytes inputBytes)
+    private long FindStartTrailer(MemoryInputBytes inputBytes)
     {
         ReadOnlySpan<byte> trailerMarker = "trailer"u8;
         var offset = inputBytes.FindFirstPatternOffset(trailerMarker);
@@ -104,7 +109,7 @@ public class PdfParser
         return offset ?? 0;
     }
 
-    private static long FindStartXrefOffset(MemoryInputBytes inputBytes)
+    private long FindStartXrefOffset(MemoryInputBytes inputBytes)
     {
         ReadOnlySpan<byte> startXrefMarker = "startxref"u8;
         var startXref = inputBytes.FindFirstPatternOffset(startXrefMarker) ?? throw new Exception("StartXref was not found.");
@@ -114,7 +119,7 @@ public class PdfParser
         return result;
     }
 
-    private static CrossReferenceTable ParseXrefTable(MemoryInputBytes inputBytes, long startXref)
+    private CrossReferenceTable ParseXrefTable(MemoryInputBytes inputBytes, long startXref)
     {
         inputBytes.Seek(startXref);
         var xrefTable = new Dictionary<IndirectReference, long>();
@@ -143,10 +148,7 @@ public class PdfParser
         return new CrossReferenceTable(xrefTable, startXref, inputBytes.CurrentOffset - startXref);
     }
 
-    private static DirectObject ParseObjectByOffset(
-        MemoryInputBytes inputBytes,
-        long offset
-        )
+    private DirectObject ParseObjectByOffset(MemoryInputBytes inputBytes, long offset)
     {
         inputBytes.Seek(offset);
         var objectLine = inputBytes.ReadLine();
@@ -161,17 +163,18 @@ public class PdfParser
         }
     }
     
-    private static DirectObject ParseObjectByReference(
-        MemoryInputBytes inputBytes,
-        IndirectReference objectReference,
-        CrossReferenceTable table)
+    private DirectObject ParseObjectByReference(IndirectReference objectReference)
     {
-        // 1st get Byte Offset from Cross Reference Table
-        var offset = table.ObjectOffsets[objectReference];
-        return ParseObjectByOffset(inputBytes, offset);
+        if (!_objectTable.TryGetValue(objectReference, out var dirObject))
+        {
+            var offset = _crossReferenceTable.ObjectOffsets[objectReference];
+            return ParseObjectByOffset(_memoryReader, offset);
+        }
+
+        return dirObject;
     }
 
-    private static StreamObject ParseStreamObject(MemoryInputBytes inputBytes, StreamFilter encoding, int length)
+    private StreamObject ParseStreamObject(MemoryInputBytes inputBytes, StreamFilter encoding, int length)
     {
         //Move to the next line
         //inputBytes.MoveNext();
@@ -189,7 +192,7 @@ public class PdfParser
         return new StreamObject(inputBytes.Slice((int)begin, length), encoding, begin, length);
     }
 
-    private static DictionaryObject ParseDictionaryObject(MemoryInputBytes inputBytes)
+    private DictionaryObject ParseDictionaryObject(MemoryInputBytes inputBytes)
     {
         //We are outside of the dictionary
         var beginOffset = inputBytes.CurrentOffset;
@@ -235,7 +238,7 @@ public class PdfParser
         throw new Exception("Failed parsing dictionary.");
     }
 
-    private static DirectObject ParseNumericObject(MemoryInputBytes inputBytes)
+    private DirectObject ParseNumericObject(MemoryInputBytes inputBytes)
     {
         var begin = inputBytes.CurrentOffset;
         var sign = 1;
@@ -270,9 +273,13 @@ public class PdfParser
                     var genNumber = inputBytes.ReadNumeric();
                     inputBytes.MoveNext();
                     inputBytes.MoveNext();
-                
-                    return new ReferenceObject(new IndirectReference(int.Parse(number), int.Parse(genNumber)),
-                        begin, inputBytes.CurrentOffset - begin);
+
+                    var reference = new IndirectReference(int.Parse(number), int.Parse(genNumber));
+                    var offset = inputBytes.CurrentOffset;
+                    var directObject = ParseObjectByReference(reference);
+                    inputBytes.Seek(offset);
+                    
+                    return new ReferenceObject(reference, directObject, begin, inputBytes.CurrentOffset - begin);
                 }
                 else
                 {
@@ -295,7 +302,7 @@ public class PdfParser
         }
     }
 
-    private static NameObject ParseNameObject(MemoryInputBytes inputBytes)
+    private NameObject ParseNameObject(MemoryInputBytes inputBytes)
     {
         if (inputBytes.CurrentByte != '/')
         {
@@ -316,7 +323,7 @@ public class PdfParser
         return new NameObject(name, begin, inputBytes.CurrentOffset - begin);
     }
 
-    public static StringObject ParseStringObject(MemoryInputBytes inputBytes)
+    public StringObject ParseStringObject(MemoryInputBytes inputBytes)
     {
         Debug.Assert(inputBytes.CurrentChar is '(' or '<');
         var begin = inputBytes.CurrentOffset;
@@ -344,7 +351,7 @@ public class PdfParser
         return new StringObject(inputBytes.Slice((int)begin, (int)(inputBytes.CurrentOffset - begin)), begin, inputBytes.CurrentOffset - begin);
     }
 
-    public static DirectObject ParseArrayObject(MemoryInputBytes inputBytes)
+    private DirectObject ParseArrayObject(MemoryInputBytes inputBytes)
     {
         //Arrays in PDF are space delineated and can contain any object, including other arrays.
         //So essentially loop until we see an end of array token
@@ -363,7 +370,7 @@ public class PdfParser
         return new ArrayObject(objects, begin, inputBytes.CurrentOffset - begin);
     }
 
-    private static BooleanObject ParseBooleanObject(MemoryInputBytes inputBytes, bool parseTrue)
+    private BooleanObject ParseBooleanObject(MemoryInputBytes inputBytes, bool parseTrue)
     {
         var begin = inputBytes.CurrentOffset;
         if (inputBytes.Match(parseTrue ? "true"u8 : "false"u8))
@@ -374,7 +381,7 @@ public class PdfParser
         throw new UnreachableException();
     }
 
-    private static NullObject ParseNullObject(MemoryInputBytes inputBytes)
+    private NullObject ParseNullObject(MemoryInputBytes inputBytes)
     {
         var begin = inputBytes.CurrentOffset;
         if (inputBytes.Match("null"u8))
@@ -385,7 +392,7 @@ public class PdfParser
         throw new UnreachableException();
     }
 
-    private static void HandleStreamDictionary(MemoryInputBytes inputBytes, DictionaryObject streamDictionary)
+    private void HandleStreamDictionary(MemoryInputBytes inputBytes, DictionaryObject streamDictionary)
     {
         //TODO: Read the stream
         var lengthObject = streamDictionary["Length"];
@@ -418,7 +425,7 @@ public class PdfParser
         }
     }
     
-    public static DirectObject ParseDirectObject(MemoryInputBytes inputBytes)
+    public DirectObject ParseDirectObject(MemoryInputBytes inputBytes)
     {
         switch (inputBytes.CurrentChar)
         {

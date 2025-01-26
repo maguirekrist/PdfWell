@@ -1,6 +1,8 @@
 using System.Collections.ObjectModel;
 using PDFParser.Parser.Document;
+using PDFParser.Parser.Factories;
 using PDFParser.Parser.Objects;
+using PDFParser.Parser.Utils;
 
 namespace PDFParser.Parser;
 
@@ -31,11 +33,17 @@ public class PdfDocument
         return Pages[pageNumber - 1];
     }
 
+    public T GetObjectNumber<T>(int objNumber) where T : DirectObject
+    {
+        var obj = _objectTable.GetAs<T>(new IndirectReference(objNumber, 0));
+        return obj;
+    }
+
     private List<Page> LoadPages()
     {
         return _objectTable.Values.OfType<DictionaryObject>()
             .Where(x => x["Type"] is NameObject { Name: "Page" })
-            .Select(x => Page.Create(x, _objectTable))
+            .Select(x => PageFactory.Create(x, _objectTable))
             .ToList();
     }
 

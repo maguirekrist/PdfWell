@@ -3,14 +3,6 @@ using System.Text;
 
 namespace PDFParser.Parser.Objects;
 
-public enum StringType
-{
-    Ascii,
-    PdfDocEncoded,
-    Text,
-    Date
-}
-
 public class StringObject : DirectObject
 {
     //NOTE: string objects are very complex in PDF format
@@ -20,36 +12,27 @@ public class StringObject : DirectObject
     //Strings are also regularly encoded as HEX streams that must be processed too!
 
     private readonly ReadOnlyMemory<byte> _data;
-    private readonly Lazy<StringType> _type;
-    private readonly Lazy<string> _value;
+    private readonly Lazy<byte[]> _value;
     
     public bool IsHex => _data.Span[0] == '<';
+    
 
-    public StringType Type => _type.Value;
-
-    public string Value => _value.Value;
+    public byte[] Value => _value.Value;
         
     public StringObject(ReadOnlyMemory<byte> data, long offset, long length) : base(offset, length)
     {
         _data = data;
-        _type = new Lazy<StringType>(GetStringType);
-        _value = new Lazy<string>(GetString);
+        _value = new Lazy<byte[]>(GetCharacterCodes);
     }
 
-    private StringType GetStringType()
-    {
-        //TODO: Compute String Type
-        return StringType.Ascii;
-    }
-
-    private string GetString()
+    private byte[] GetCharacterCodes()
     {
         return IsHex ? 
-            HexToString(_data.Span.Slice(1, _data.Length - 2)) : 
-            Encoding.ASCII.GetString(_data.Span.Slice(1, _data.Length - 1));
+            HexToBytes(_data.Span.Slice(1, _data.Length - 2)) : 
+            _data.Span.Slice(1, _data.Length - 1).ToArray();
     }
 
-    private string HexToString(ReadOnlySpan<byte> data)
+    private byte[] HexToBytes(ReadOnlySpan<byte> data)
     {
         if (data.Length % 2 != 0)
         {
@@ -65,7 +48,7 @@ public class StringObject : DirectObject
             bytes[i / 2] = (byte)(highNibble | lowNibble);
         }
 
-        return Encoding.Default.GetString(bytes);
+        return bytes;
     }
     
     private static int GetHexValue(char hex)
