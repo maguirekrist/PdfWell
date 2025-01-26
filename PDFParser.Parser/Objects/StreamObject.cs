@@ -48,10 +48,8 @@ public class StreamObject : DirectObject
                 // Console.WriteLine(BitConverter.ToString(rawBytes));
                 using var memoryStream = new MemoryStream(rawBytes);
                 using var deflateStream = new DeflateStream(memoryStream, CompressionMode.Decompress);
-                using var reader = new StreamReader(deflateStream, Encoding.BigEndianUnicode);
-                Console.WriteLine(reader.CurrentEncoding.EncodingName);
+                using var reader = new StreamReader(deflateStream);
                 var decoded = reader.ReadToEnd();
-                Console.WriteLine(decoded);
                 DecodedStream = decoded;
                 return new MemoryInputBytes(System.Text.Encoding.ASCII.GetBytes(decoded));
             }
