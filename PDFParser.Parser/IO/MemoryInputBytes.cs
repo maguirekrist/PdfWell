@@ -36,6 +36,17 @@ public class MemoryInputBytes
         return true;
     }
 
+    public bool Move(int amount)
+    {
+        if (IsAtEnd() || _currentOffset + amount >= _upperbound)
+        {
+            return false;
+        }
+
+        _currentOffset += amount;
+        return true;
+    }
+
     public bool StepBack()
     {
         if (_currentOffset == 0)
@@ -87,7 +98,7 @@ public class MemoryInputBytes
         _currentOffset = (int)position;
     }
 
-    public int Read(Span<byte> buffer)
+    private int Read(Span<byte> buffer)
     {
         if (buffer.IsEmpty)
         {
@@ -102,7 +113,7 @@ public class MemoryInputBytes
         
         if (readLength > 0)
         {
-            _currentOffset += readLength;
+            // _currentOffset += readLength;
         }
 
         return readLength;
@@ -128,11 +139,13 @@ public class MemoryInputBytes
             var offset = CurrentOffset;
             if (Match(matchBytes))
             {
+                _currentOffset += matchBytes.Length;
                 return offset;
             }
             else
             {
-                bytesRead += (int)(CurrentOffset - offset);
+                bytesRead++;
+                MoveNext();
             }
         }
 
@@ -178,6 +191,8 @@ public class MemoryInputBytes
         
         return tempBuffer.SequenceEqual(matchBytes);
     }
+    
+    
 
     public ReadOnlySpan<byte> ReadLine()
     {
@@ -187,6 +202,12 @@ public class MemoryInputBytes
         var startEol = FindFirstPatternOffset("\n"u8) ?? _currentOffset;      
         
         return _memory.Span.Slice((int)begin, (int)(startEol - begin));
+    }
+    
+    public void NextLine()
+    {
+        var startEol = FindFirstPatternOffset("\n"u8) ?? _currentOffset;
+        MoveNext();
     }
 
     public void SkipWhitespace()

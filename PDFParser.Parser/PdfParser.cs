@@ -71,7 +71,8 @@ public class PdfParser
         
         foreach (var (key, val) in _crossReferenceTable.ObjectOffsets)
         {
-            _objectTable.Add(key, ParseObjectByReference(key));
+            var obj = ParseObjectByReference(key);
+            _objectTable.TryAdd(key, obj);
         }
 
         return new PdfDocument(_objectTable);
@@ -129,8 +130,9 @@ public class PdfParser
         {
             throw new Exception("Expected xref in next sequence of bytes.");
         }
-
-        inputBytes.MoveNext();
+        
+        
+        inputBytes.NextLine();
         
         var line = inputBytes.ReadLine();
         int.TryParse(line.Slice(1), out var objectCount);
@@ -168,7 +170,8 @@ public class PdfParser
         if (!_objectTable.TryGetValue(objectReference, out var dirObject))
         {
             var offset = _crossReferenceTable.ObjectOffsets[objectReference];
-            return ParseObjectByOffset(_memoryReader, offset);
+            dirObject = ParseObjectByOffset(_memoryReader, offset);
+            _objectTable.TryAdd(objectReference, dirObject);
         }
 
         return dirObject;
@@ -181,10 +184,12 @@ public class PdfParser
         
         //var streamBegin = inputBytes.ReadLine();
         inputBytes.SkipWhitespace();
-        if (!inputBytes.Match("stream"u8))
+        var key = "stream"u8;
+        if (!inputBytes.Match(key))
         {
             throw new UnreachableException();
         }
+        inputBytes.Move(key.Length);
 
         //Beginning of stream
         inputBytes.SkipWhitespace();
@@ -238,7 +243,7 @@ public class PdfParser
         throw new Exception("Failed parsing dictionary.");
     }
 
-    private DirectObject ParseNumericObject(MemoryInputBytes inputBytes)
+    public DirectObject ParseNumericObject(MemoryInputBytes inputBytes)
     {
         var begin = inputBytes.CurrentOffset;
         var sign = 1;
@@ -275,11 +280,11 @@ public class PdfParser
                     inputBytes.MoveNext();
 
                     var reference = new IndirectReference(int.Parse(number), int.Parse(genNumber));
-                    var offset = inputBytes.CurrentOffset;
-                    var directObject = ParseObjectByReference(reference);
-                    inputBytes.Seek(offset);
+                    // var offset = inputBytes.CurrentOffset;
+                    // var directObject = ParseObjectByReference(reference);
+                    // inputBytes.Seek(offset);
                     
-                    return new ReferenceObject(reference, directObject, begin, inputBytes.CurrentOffset - begin);
+                    return new ReferenceObject(reference, _objectTable, begin, inputBytes.CurrentOffset - begin);
                 }
                 else
                 {

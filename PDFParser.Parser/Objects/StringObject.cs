@@ -38,8 +38,8 @@ public class StringObject : DirectObject
         {
             throw new ArgumentException("Invalid Hex stream!");
         }
-        
-        var bytes = ArrayPool<byte>.Shared.Rent(data.Length / 2);
+
+        var bytes = new byte[data.Length / 2];
         //byte[] bytes = new byte[data.Length / 2];
         for (int i = 0; i < data.Length; i += 2)
         {

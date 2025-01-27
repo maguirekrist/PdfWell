@@ -28,7 +28,6 @@ public class Font
     public string SubType => _fontDictionary.GetAs<NameObject>("Subtype").Name;
     public string Name => _fontDictionary.GetAs<NameObject>("BaseFont").Name;
     
-    //TODO: Handle Cmapping
     public IEncoding CreateCharacterMapper()
     {
         if (_fontDictionary.HasKey("ToUnicode"))
@@ -36,7 +35,7 @@ public class Font
             //Construct a Unicode Character Mapper
             var test = _fontDictionary.GetAs<ReferenceObject>("ToUnicode");
             var cmapStream = test.Value as DictionaryObject ?? throw new UnreachableException();
-            return UnicodeCharacterMapper.CreateUnicodeMapper(cmapStream.Stream!.Reader);
+            return new UnicodeCharacterMapper(cmapStream.Stream!.Reader);
         }   
         
         return new DefaultCharacterMapper();

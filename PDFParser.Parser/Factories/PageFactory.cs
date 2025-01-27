@@ -33,7 +33,16 @@ public static class PageFactory
             }
         }
 
-        var fontDictionary = pageDictionary.GetAs<DictionaryObject>("Font").Dictionary
+        var resources = pageDictionary["Resources"] ?? throw new UnreachableException();
+
+        var resourceDictionary = resources switch
+        {
+            DictionaryObject dict => dict,
+            ReferenceObject referenceObject => referenceObject.Value as DictionaryObject,
+            _ => throw new ArgumentOutOfRangeException()
+        } ?? throw new UnreachableException();
+        
+        var fontDictionary = resourceDictionary.GetAs<DictionaryObject>("Font").Dictionary
             .Aggregate(
                 new Dictionary<string, Font>(),
                 (dict, kvp) =>
@@ -42,7 +51,8 @@ public static class PageFactory
                     var fontObject = objects.GetAs<DictionaryObject>(reference.Reference) ?? throw new UnreachableException();
                     dict[kvp.Key.Name] = FontFactory.Create(fontObject, objects);
                     return dict;
-                }) ?? throw new UnreachableException();
+                }) ?? throw new UnreachableException();   
+        
         
         return new Page(mediaBox, streams, fontDictionary);
 

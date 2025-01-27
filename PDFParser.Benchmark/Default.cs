@@ -7,21 +7,34 @@ namespace PDFParser.Benchmark;
 [MemoryDiagnoser]
 public class DefaultBenchmark
 {
-    private const string PdfPath = "TestPDFs/A4.pdf";
-
-    private byte[] _fileData = null!;
-    private PdfParser _parser = null!;
+    private const string A4 = "TestPDFs/A4.pdf";
+    private const string Statement = "TestPDFs/Statement.pdf";
+    
+    private PdfParser _parserA4 = null!;
+    private PdfParser _parserStatement = null!;
+    
     
     [GlobalSetup]
     public void SetDefaultBenchmark()
     {
-        _fileData = File.ReadAllBytes(PdfPath);
-        _parser = new PdfParser(_fileData);
+        _parserA4 = new PdfParser(File.ReadAllBytes(A4));
+        _parserStatement = new PdfParser(File.ReadAllBytes(Statement));
     }
 
+    // [Benchmark]
+    // public void ParseA4()
+    // {
+    //     var doc= _parserA4.Parse();
+    //     var pages = doc.Pages;
+    //     var textPageOne = pages[0].Texts;
+    // }
+
     [Benchmark]
-    public void ParsePdf()
+    public void ParseStatement()
     {
-        _parser.Parse();
+        var doc = _parserStatement.Parse();
+        //
+        var pages = doc.Pages;
+        var textPageOne = pages[0].Texts;
     }
 }
