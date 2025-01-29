@@ -11,9 +11,9 @@ public class PdfParser
     private CrossReferenceTable _crossReferenceTable = null!;
     private Dictionary<IndirectReference, DirectObject> _objectTable = new Dictionary<IndirectReference, DirectObject>();
 
-    public PdfParser(byte[] pdfData)
+    public PdfParser(byte[] pdfData, IMatcher? matcherStrategy = null)
     {
-        _memoryReader = new MemoryInputBytes(pdfData);
+        _memoryReader = new MemoryInputBytes(pdfData, matcherStrategy);
     }
 
     public PdfParser(MemoryInputBytes inputBytes)
@@ -38,14 +38,14 @@ public class PdfParser
                 _memoryReader.Seek((int)offset.Value);
                 var hintStream = _memoryReader.Slice((int)offset.Value, (int)length.Value);
 
-                Console.WriteLine(Encoding.ASCII.GetString(hintStream.Span));
+                //Console.WriteLine(Encoding.ASCII.GetString(hintStream.Span));
                 
                 var hintStreamObject = GetNextObject(_memoryReader);
 
                 if (hintStreamObject is DictionaryObject { IsStream: true, Stream: not null } streamObject)
                 {
                     var reader = streamObject.Stream.Reader;
-                    Console.WriteLine(streamObject.Stream.DecodedStream);
+                    //Console.WriteLine(streamObject.Stream.DecodedStream);
                 }
             }
         }
@@ -64,7 +64,7 @@ public class PdfParser
         //     throw new Exception("WTF!");
         // }
         
-        var startXref = FindStartXrefOffset(_memoryReader);
+        var startXref = FindStartXrefOffset();
         _memoryReader.Seek(0);
 
         _crossReferenceTable = ParseXrefTable(_memoryReader, startXref);
@@ -110,12 +110,12 @@ public class PdfParser
         return offset ?? 0;
     }
 
-    private long FindStartXrefOffset(MemoryInputBytes inputBytes)
+    public long FindStartXrefOffset()
     {
         ReadOnlySpan<byte> startXrefMarker = "startxref"u8;
-        var startXref = inputBytes.FindFirstPatternOffset(startXrefMarker) ?? throw new Exception("StartXref was not found.");
-        inputBytes.MoveNext();
-        var nextLine = inputBytes.ReadLine();
+        var startXref = _memoryReader.FindFirstPatternOffset(startXrefMarker) ?? throw new Exception("StartXref was not found.");
+        _memoryReader.MoveNext();
+        var nextLine = _memoryReader.ReadLine();
         long.TryParse(nextLine, out var result);
         return result;
     }

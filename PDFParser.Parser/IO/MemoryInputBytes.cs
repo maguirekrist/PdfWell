@@ -7,14 +7,15 @@ public class MemoryInputBytes
     private readonly int _upperbound;
     private readonly ReadOnlyMemory<byte> _memory;
 
+    private IMatcher? _matchStrategy;
     private int _currentOffset;
     
-    public MemoryInputBytes(ReadOnlyMemory<byte> memory)
+    public MemoryInputBytes(ReadOnlyMemory<byte> memory, IMatcher? matchStrategy = null)
     {
         _memory = memory;
-
         _upperbound = _memory.Length - 1;
         _currentOffset = 0;
+        _matchStrategy = matchStrategy;
     }
 
     public long CurrentOffset => _currentOffset;
@@ -121,6 +122,18 @@ public class MemoryInputBytes
 
     public long? FindFirstPatternOffset(ReadOnlySpan<byte> matchBytes, int? maxBytesToRead = null)
     {
+        if (_matchStrategy is not null)
+        {
+            var begin = _currentOffset;
+            var offset= _matchStrategy.FindFirstOffset(_memory.Slice(_currentOffset), matchBytes);
+            if (offset is not null)
+            {
+                _currentOffset = (int)offset + begin + matchBytes.Length;
+                return offset + begin;
+            }
+            return null;
+        }
+        
         var bytesRead = 0;
         while (!IsAtEnd())
         {

@@ -1,4 +1,5 @@
 using PDFParser.Parser;
+using PDFParser.Parser.IO;
 
 namespace PDFParser.Tests;
 
@@ -17,11 +18,24 @@ public class Tests
     }
 
     [Test]
-    public void TestA4()
+    public void XrefMatcherText()
     {
         var pdfData = File.ReadAllBytes(A4);
         var parser = new PdfParser(pdfData);
-        var document = parser.Parse();
+        var defaultXrefOffset = parser.FindStartXrefOffset();
+
+        var newParser = new PdfParser(pdfData, new BoyerMooreMatcher());
+        var xrefOffset = newParser.FindStartXrefOffset();
+        
+        Assert.That(xrefOffset, Is.EqualTo(defaultXrefOffset));
+    }
+
+    [Test]
+    public void TestA4()
+    {
+        var pdfData = File.ReadAllBytes(A4);
+        var parser = new PdfParser(pdfData, new BoyerMooreMatcher());
+        var document = parser.Parse(); 
         
         Assert.That(document.ObjectTable.Count, Is.EqualTo(6));
         Assert.That(document.Pages.Count, Is.EqualTo(1));

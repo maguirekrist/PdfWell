@@ -46,7 +46,6 @@ public class StreamObject : DirectObject
             case StreamFilter.Flate:
             {
                 var rawBytes = Data.ToArray()[2..];
-                // Console.WriteLine(BitConverter.ToString(rawBytes));
                 using var memoryStream = new MemoryStream(rawBytes);
                 using var deflateStream = new DeflateStream(memoryStream, CompressionMode.Decompress);
                 using var reader = new StreamReader(deflateStream);

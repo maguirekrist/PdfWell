@@ -16,17 +16,17 @@ var document = parser.Parse();
 
 Console.WriteLine($"Total Pages: {document.Pages.Count}");
 
-Console.WriteLine("Cmap Stream");
-var toUnicodeStreamObject = document.GetObjectNumber<DictionaryObject>(14);
-Console.WriteLine(toUnicodeStreamObject.Stream!.DecodedStream);
+// Console.WriteLine("Cmap Stream");
+// var toUnicodeStreamObject = document.GetObjectNumber<DictionaryObject>(14);
+// Console.WriteLine(toUnicodeStreamObject.Stream!.DecodedStream);
 
 var page = document.GetPage(1);
 
-foreach (var content in page.Contents)
-{
-    Console.WriteLine("Decoded Stream:");
-    Console.WriteLine(content.DecodedStream);
-}
+// foreach (var content in page.Contents)
+// {
+//     Console.WriteLine("Decoded Stream:");
+//     Console.WriteLine(content.DecodedStream);
+// }
 
 var texts = page.GetTexts();
 
