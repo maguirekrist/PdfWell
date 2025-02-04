@@ -37,6 +37,22 @@ public class DictionaryObject : DirectObject
         throw new InvalidCastException($"The value for key '{key}' is not of type {typeof(T).Name}.");
     }
 
+    public T? TryGetAs<T>(string key) where T : DirectObject
+    {
+        var namedKey = new NameObject(key);
+        if (!_dictionary.TryGetValue(namedKey, out var value))
+        {
+            return null;
+        }
+
+        if (value is T result)
+        {
+            return result;
+        }
+
+        return null;
+    }
+
     public bool HasKey(string key)
     {
         var namedKey = new NameObject(key);

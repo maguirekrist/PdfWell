@@ -1,8 +1,11 @@
 using System.Diagnostics;
 using System.Text;
+using PDFParser.Parser.ConceptObjects;
 using PDFParser.Parser.Exceptions;
 using PDFParser.Parser.IO;
 using PDFParser.Parser.Objects;
+using PDFParser.Parser.Utils;
+
 namespace PDFParser.Parser;
 
 public class PdfParser
@@ -23,35 +26,10 @@ public class PdfParser
     
     public PdfDocument Parse()
     {
-        var firstObject = GetNextObject(_memoryReader);
-
-        if (firstObject is DictionaryObject dictionaryObject)
-        {
-            if (dictionaryObject.Dictionary.Keys.Any(x => x.Name == "Linearized"))
-            {
-                //This is a linearized hint table
-                //For a test, let's grab the hint stream and giure out what it is....
-                var hintArray = dictionaryObject.GetAs<ArrayObject>("H");
-                var offset = hintArray[0] as NumericObject ?? throw new UnreachableException();
-                var length = hintArray[1] as NumericObject ?? throw new UnreachableException();
-
-                _memoryReader.Seek((int)offset.Value);
-                var hintStream = _memoryReader.Slice((int)offset.Value, (int)length.Value);
-
-                //Console.WriteLine(Encoding.ASCII.GetString(hintStream.Span));
-                
-                var hintStreamObject = GetNextObject(_memoryReader);
-
-                if (hintStreamObject is DictionaryObject { IsStream: true, Stream: not null } streamObject)
-                {
-                    var reader = streamObject.Stream.Reader;
-                    //Console.WriteLine(streamObject.Stream.DecodedStream);
-                }
-            }
-        }
-        
         // if (IsLinearized(_memoryReader))
         // {
+        //     
+        //     
         //     //TODO: Parse Hint Table
         //     //Hint Tables are PDF Dictionaries with /Linearized key
         //     //This is apart of the PDF technology called "Fast Web View"
@@ -63,6 +41,11 @@ public class PdfParser
         //     //T - Offset of First Page Cross-Reference Table
         //     throw new Exception("WTF!");
         // }
+        var linearizedDict = TryGetLinearizedDictionary();
+        if (linearizedDict != null)
+        {
+            throw new Exception("WTF!!");
+        }
         
         var startXref = FindStartXrefOffset();
         _memoryReader.Seek(0);
@@ -89,6 +72,41 @@ public class PdfParser
         return offset != null;
     }
 
+    private LinearizedDictionary? TryGetLinearizedDictionary()
+    {
+        var firstObject = GetNextObject(_memoryReader);
+
+        if (firstObject is DictionaryObject dictionaryObject)
+        {
+            if (dictionaryObject.Dictionary.Keys.Any(x => x.Name == "Linearized"))
+            {
+                //TODO: Implement Dynamic Dictionary Mapping.
+                var linearizedDict = dictionaryObject.TryMapTo<LinearizedDictionary>();
+                return linearizedDict;
+                //This is a linearized hint table
+                //For a test, let's grab the hint stream and giure out what it is....
+                var hintArray = dictionaryObject.GetAs<ArrayObject>("H");
+                var offset = hintArray[0] as NumericObject ?? throw new UnreachableException();
+                var length = hintArray[1] as NumericObject ?? throw new UnreachableException();
+
+                _memoryReader.Seek((int)offset.Value);
+                var hintStream = _memoryReader.Slice((int)offset.Value, (int)length.Value);
+
+                //Console.WriteLine(Encoding.ASCII.GetString(hintStream.Span));
+                
+                var hintStreamObject = GetNextObject(_memoryReader);
+
+                if (hintStreamObject is DictionaryObject { IsStream: true, Stream: not null } streamObject)
+                {
+                    var reader = streamObject.Stream.Reader;
+                    //Console.WriteLine(streamObject.Stream.DecodedStream);
+                }
+            }
+        }
+
+        return null;
+    }
+    
     private DirectObject GetNextObject(MemoryInputBytes inputBytes)
     {
         var objOffset = inputBytes.FindFirstPatternOffset("obj"u8);
