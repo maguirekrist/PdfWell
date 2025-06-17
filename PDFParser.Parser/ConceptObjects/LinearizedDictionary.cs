@@ -8,7 +8,7 @@ public class LinearizedDictionary
     [PdfDictionaryKey("L")]
     public required NumericObject LengthOfFile { get; init; }
     [PdfDictionaryKey("H")]
-    public required ArrayObject HintOffsets { get; init; }
+    public required ArrayObject<DirectObject> HintOffsets { get; init; }
     [PdfDictionaryKey("O")]
     public required NumericObject FirstPageObjectNumber { get; init; }
     [PdfDictionaryKey("E")]

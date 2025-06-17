@@ -1,18 +1,25 @@
+using System.Dynamic;
+
 namespace PDFParser.Parser.Objects;
 
 public class DictionaryObject : DirectObject
 {
-    private Dictionary<NameObject, DirectObject> _dictionary;
+    private readonly Dictionary<NameObject, DirectObject> _dictionary;
 
     public Dictionary<NameObject, DirectObject> Dictionary => _dictionary;
 
-    public bool IsStream => _dictionary.ContainsKey(new NameObject("Length"));
+    public bool HasLength => _dictionary.ContainsKey(new NameObject("Length"));
     
-    public StreamObject? Stream { get; set; }
+    // public StreamObject? Stream { get; set; }
     
     public DictionaryObject(Dictionary<NameObject, DirectObject> dictionary, long offset, long length) : base(offset, length)
     {
         _dictionary = dictionary;
+    }
+
+    public DictionaryObject(DictionaryObject dictionaryObject) : base(dictionaryObject.Offset, dictionaryObject.Length)
+    {
+        _dictionary = dictionaryObject.Dictionary;
     }
     
     public DirectObject? this[string key]

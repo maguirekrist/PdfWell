@@ -1,3 +1,4 @@
+using System.Text;
 using PDFParser.Parser.Utils;
 
 namespace PDFParser.Parser.IO;
@@ -165,6 +166,44 @@ public class MemoryInputBytes
         return null;
     }
 
+    public long? FindFirstPatternOffset(List<byte[]> matchBytes, int? maxBytesToRead = null)
+    {
+        var indx = IndexOfAny(matchBytes, maxBytesToRead, out var matchLength);
+        if (indx == -1)
+        {
+            return null;
+        }
+
+        _currentOffset = indx + matchLength;
+        return indx;
+    }
+
+    private int IndexOfAny(List<byte[]> delimiters, int? maxBytesToRead, out int matchLength)
+    {
+        for (int i = _currentOffset; i < Length; i++)
+        {
+            if (maxBytesToRead != null && i > maxBytesToRead)
+            {
+                break;
+            }
+            
+            foreach (var delimiter in delimiters)
+            {
+                if (delimiter.Length == 0 || i + delimiter.Length > Length)
+                    continue;
+
+                if (_memory.Slice(i, delimiter.Length).Span.SequenceEqual(delimiter))
+                {
+                    matchLength = delimiter.Length;
+                    return i;
+                }
+            }
+        }
+
+        matchLength = 0;
+        return -1;
+    }
+    
     public long RewindUntil(ReadOnlySpan<byte> matchBytes)
     {
         while (_currentOffset != 0)
@@ -212,15 +251,23 @@ public class MemoryInputBytes
         //Assume we are reading at a beginning of a new line
         var begin = CurrentOffset;
         
-        var startEol = FindFirstPatternOffset("\n"u8) ?? _currentOffset;      
+        var startEol = FindFirstPatternOffset([
+            Encoding.ASCII.GetBytes("\n"), Encoding.ASCII.GetBytes("\r"), Encoding.ASCII.GetBytes("\r\n")
+        ]) ?? _currentOffset;      
         
         return _memory.Span.Slice((int)begin, (int)(startEol - begin));
     }
     
     public void NextLine()
     {
-        var startEol = FindFirstPatternOffset("\n"u8) ?? _currentOffset;
-        MoveNext();
+        var startEol = FindFirstPatternOffset([
+            Encoding.ASCII.GetBytes("\n"), Encoding.ASCII.GetBytes("\r"), Encoding.ASCII.GetBytes("\r\n")
+        ]) ?? _currentOffset;
+
+        if (CurrentChar == '\n')
+        {
+            MoveNext();
+        }
     }
 
     public void SkipWhitespace()
@@ -283,7 +330,7 @@ public class MemoryInputBytes
         var begin = CurrentOffset;
         while (!IsAtEnd())
         {
-            if (CurrentByte.IsNumeric() || CurrentByte.IsAlpha() || CurrentByte == '.' || CurrentByte == '#' || CurrentByte == ',' || CurrentByte == '-' || CurrentByte == '&')
+            if (CurrentByte.IsNumeric() || CurrentByte.IsAlpha() || CurrentByte == ':' || CurrentByte == '.' || CurrentByte == '#' || CurrentByte == ',' || CurrentByte == '-' || CurrentByte == '&')
             {
                 MoveNext();
             }

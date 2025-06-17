@@ -10,7 +10,7 @@ public record FormFieldDictionary
 {
     public required NameObject Type { get; init; }
     public DictionaryObject? Parent { get; init; }
-    public ArrayObject? Kids { get; init; }
+    public ArrayObject<DirectObject>? Kids { get; init; }
     [PdfDictionaryKey("T")]
     public StringObject? FieldName { get; init; }
     [PdfDictionaryKey("TU")]

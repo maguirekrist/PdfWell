@@ -11,6 +11,7 @@ public class Tests
     private const string G1145 = "TestPDFs/g-1145.pdf";
     private const string BankStatement = "TestPDFs/Statement.pdf";
     private const string Resume = "TestPDFs/Resume.pdf";
+    private const string SSA89 = "TestPDFs/SSA-89.pdf";
     
     [SetUp]
     public void Setup()
@@ -107,6 +108,25 @@ public class Tests
         {
             Console.WriteLine(text);
         }
+    }
+
+    [Test]
+    public void TestSimpleGovForm()
+    {
+        var pdfData = File.ReadAllBytes(SSA89);
+        var parser = new PdfParser(pdfData);
+        var document = parser.Parse();
+        
+        Assert.That(document.Pages.Count, Is.EqualTo(1));
+
+        var encryption = document.Encryption;
+        Assert.NotNull(encryption);
+
+        var catalog = document.DocumentCatalog;
+        Assert.NotNull(catalog);
+
+        var acroForm = document.GetAcroForm();
+        Assert.NotNull(acroForm);
     }
     
 }

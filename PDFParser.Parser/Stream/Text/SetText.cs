@@ -23,7 +23,7 @@ internal class SetText : ITextCommand
         var pre = objects[0];
         switch (pre)
         {
-            case ArrayObject arrayObject:
+            case ArrayObject<DirectObject> arrayObject:
                 _text = arrayObject.Objects.OfType<StringObject>().Aggregate(new List<byte>(), (arr, x) =>
                 {
                     arr.AddRange(x.Value);

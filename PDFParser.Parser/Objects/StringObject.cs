@@ -13,16 +13,20 @@ public class StringObject : DirectObject
 
     private readonly ReadOnlyMemory<byte> _data;
     private readonly Lazy<byte[]> _value;
+    private readonly Lazy<string> _text;
     
     public bool IsHex => _data.Span[0] == '<';
-    
-
     public byte[] Value => _value.Value;
+    public int Length => _data.Length;
+    public int ByteLength => _value.Value.Length;
+
+    public string Text => _text.Value;
         
     public StringObject(ReadOnlyMemory<byte> data, long offset, long length) : base(offset, length)
     {
         _data = data;
         _value = new Lazy<byte[]>(GetCharacterCodes);
+        _text = new Lazy<string>(DecodePdfString);
     }
 
     private byte[] GetCharacterCodes()
@@ -30,6 +34,18 @@ public class StringObject : DirectObject
         return IsHex ? 
             HexToBytes(_data.Span.Slice(1, _data.Length - 2)) : 
             _data.Span.Slice(1, _data.Length - 1).ToArray();
+    }
+
+    private string DecodePdfString()
+    {
+        // UTF-16BE if BOM is present
+        var bytes = _data.ToArray();
+        if (bytes.Length >= 2 && bytes[0] == 0xFE && bytes[1] == 0xFF)
+        {
+            return Encoding.BigEndianUnicode.GetString(bytes, 2, bytes.Length - 2);
+        }
+
+        return Encoding.GetEncoding(28591).GetString(bytes);
     }
 
     private byte[] HexToBytes(ReadOnlySpan<byte> data)

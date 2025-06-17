@@ -1,8 +1,10 @@
 using System.Diagnostics;
 using System.IO.Compression;
 using System.Text;
+using Dynamitey.DynamicObjects;
 using PDFParser.Parser.Document;
 using PDFParser.Parser.IO;
+using PDFParser.Parser.Utils;
 
 namespace PDFParser.Parser.Objects;
 
@@ -12,7 +14,25 @@ public enum StreamFilter
     Flate
 }
 
-public class StreamObject : DirectObject
+public enum Predictor
+{
+    None = 1,
+    TIFF = 2,
+    PNGNone = 10,
+    PNGSub = 11,
+    PNGUp = 12,
+    PNGAverage = 13,
+    PNGPaeth = 14,
+    PNGOptimum = 15
+}
+
+public struct DecoderParams
+{
+    public Predictor Predictor;
+    public int Columns;
+}
+
+public class StreamObject : DictionaryObject
 {
     //Note -- Content Streams
     //PDF Content Streams apart of the PDF syntax but have a unique syntax introduction called operator
@@ -24,38 +44,83 @@ public class StreamObject : DirectObject
     //This class is simply a wrapper for the stream data... Data represents the contents between stream and endstream
     //The class user is responsible for making sense of the stream.
 
-    public ReadOnlyMemory<byte> Data { get; } //This is Raw Data.
+    private ReadOnlyMemory<byte> _data; //This is Raw Data.
 
-    public string DecodedStream { get; }
+    private readonly System.Lazy<ReadOnlyMemory<byte>> _decodedStream;
+    public ReadOnlyMemory<byte> DecodedStream => _decodedStream.Value;
 
-    public MemoryInputBytes Reader { get; }
+    public MemoryInputBytes Reader => new(_decodedStream.Value);
 
-    public StreamFilter Filter { get; } //Filter used
+    public StreamFilter Filter => GetFilter();
 
-    public StreamObject(ReadOnlyMemory<byte> buffer, StreamFilter encoding, long offset, long length) : base(offset, length)
+    public DecoderParams? DecoderParams => GetDecoderParams();
+    
+    public StreamObject(ReadOnlyMemory<byte> buffer, DictionaryObject streamDictionary) : base(streamDictionary)
     {
-        Data = buffer;
-        Filter = encoding;
-        
+        _data = buffer;
+        _decodedStream = new System.Lazy<ReadOnlyMemory<byte>>(GetDecodedStream);
+    }
+
+    public StreamObject(StreamObject obj) : this(obj._data, obj)
+    {
+    }
+
+    private DecoderParams? GetDecoderParams()
+    {
+        if (Filter != StreamFilter.Flate) return null;
+
+        var paramDictionary = TryGetAs<DictionaryObject>("DecodeParms");
+        if (paramDictionary == null) return null;
+
+        var columnObj = paramDictionary.TryGetAs<NumericObject>("Columns");
+        var predictorObj = paramDictionary.TryGetAs<NumericObject>("Predictor");
+
+        if (columnObj != null && predictorObj != null)
+        {
+            return new DecoderParams { Columns = (int)columnObj.Value, Predictor = (Predictor)((int)predictorObj.Value) };
+        }
+
+        throw new UnreachableException();
+    }
+    
+    private StreamFilter GetFilter()
+    {
+        var filterObject = TryGetAs<NameObject>("Filter");
+
+        return filterObject?.Name switch
+        {
+            Filters.FlateEncoding => StreamFilter.Flate,
+            _ => StreamFilter.None
+        };
+    }
+
+    public ReadOnlyMemory<byte> GetDecodedStream()
+    {
         switch (Filter)
         {
             case StreamFilter.None:
-                Reader = new MemoryInputBytes(Data);
-                DecodedStream = Encoding.ASCII.GetString(Data.Span);
-                break;
+                return _data;
             case StreamFilter.Flate:
             {
-                var rawBytes = Data.ToArray()[2..];
+                //var rawBytes = Data.ToArray();
+                // if (Data[..2].Span.SequenceEqual(""))
+                var rawBytes = _data.ToArray()[2..];
                 using var memoryStream = new MemoryStream(rawBytes);
                 using var deflateStream = new DeflateStream(memoryStream, CompressionMode.Decompress);
-                using var reader = new StreamReader(deflateStream);
-                var decoded = reader.ReadToEnd();
-                DecodedStream = decoded;
-                Reader=  new MemoryInputBytes(Encoding.ASCII.GetBytes(decoded));
-                break;
+                using var output = new MemoryStream();
+                deflateStream.CopyTo(output);
+
+                var decodedBytes = output.ToArray().AsSpan();
+                if (DecoderParams.HasValue)
+                {
+                    decodedBytes = PngFilterDecompressor.Decompress(decodedBytes, DecoderParams.Value);
+                }
+                return decodedBytes.ToArray();
             }
             default:
                 throw new UnreachableException();
         }
     }
+    
+    
 }

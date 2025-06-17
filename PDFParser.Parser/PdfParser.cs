@@ -12,7 +12,8 @@ public class PdfParser
 {
     private readonly MemoryInputBytes _memoryReader;
     private CrossReferenceTable _crossReferenceTable = null!;
-    private Dictionary<IndirectReference, DirectObject> _objectTable = new Dictionary<IndirectReference, DirectObject>();
+    private Trailer _trailer = null!;
+    private ObjectTable _objectTable = new ObjectTable();
 
     public PdfParser(byte[] pdfData, IMatcher? matcherStrategy = null)
     {
@@ -26,48 +27,73 @@ public class PdfParser
     
     public PdfDocument Parse()
     {
-        // if (IsLinearized(_memoryReader))
+        //There are two ways to begin parsing a PDF depending on the use case.
+        //1. Linearized parsing - this is useful for large pdfs, if your streaming content from a server, or do not want to load the whole pdf in memory at once (SUPER LARGE PDFs). 
+        //This is really only useful when you are building a PDF application for web or regular users, not necessary for PDF processors like this software (where servers with TONs of RAM are usually opening up the whole file in mem).
+        //2. Trailer Parsing - Since the whole file is in memory anyway, for example in this software, we can just jump straight to the main trailer which tells us all we need to know to start/decrypt the PDF. 
+        //This is how we'll do it.
+        
+        
+        bool isLinearized = IsLinearized();
+        // if (IsLinearized())
         // {
-        //     
-        //     
-        //     //TODO: Parse Hint Table
-        //     //Hint Tables are PDF Dictionaries with /Linearized key
-        //     //This is apart of the PDF technology called "Fast Web View"
-        //     //L - The total file length (in bytes)
-        //     //H - An Array of integers containing offset and length information of hint stream (obj locations and page content)
-        //     //O - First Page Object Number
-        //     //E - end of first page (byte offset)
-        //     //N - Number of pages
-        //     //T - Offset of First Page Cross-Reference Table
-        //     throw new Exception("WTF!");
+        //     _memoryReader.Seek(0);
+        //     ParseLinearized();
         // }
-        var linearizedDict = TryGetLinearizedDictionary();
-        if (linearizedDict != null)
-        {
-            throw new Exception("WTF!!");
-        }
+
+        _memoryReader.Seek(0);
         
         var startXref = FindStartXrefOffset();
         _memoryReader.Seek(0);
-
-        _crossReferenceTable = ParseXrefTable(_memoryReader, startXref);
         
+        _crossReferenceTable = ParseXrefTable(_memoryReader, startXref);
+        _trailer = ParseTrailer(_memoryReader);
         foreach (var (key, val) in _crossReferenceTable.ObjectOffsets)
         {
             var obj = ParseObjectByReference(key);
             _objectTable.TryAdd(key, obj);
         }
 
-        return new PdfDocument(_objectTable);
+        return new PdfDocument(_objectTable, _trailer) { IsLinearized = isLinearized };
     }
 
-    private bool IsLinearized(MemoryInputBytes inputBytes)
+    private void ParseLinearized()
     {
-        var offset = inputBytes.FindFirstPatternOffset("/Linearized"u8, 4_000_000);
+        //TODO: Parse Hint Table
+        //Hint Tables are PDF Dictionaries with /Linearized key
+        //This is apart of the PDF technology called "Fast Web View"
+        //L - The total file length (in bytes)
+        //H - An Array of integers containing offset and length information of hint stream (obj locations and page content)
+        //O - First Page Object Number
+        //E - end of first page (byte offset)
+        //N - Number of pages
+        //T - Offset of First Page Cross-Reference Table
+        var linearizedDict = TryGetLinearizedDictionary();
+        if (linearizedDict != null)
+        {
+            var hintTableStart = linearizedDict.HintOffsets.GetAs<NumericObject>(0);
+            var hintTableLength = linearizedDict.HintOffsets.GetAs<NumericObject>(1);
+            _memoryReader.Seek((int)hintTableStart.Value);
+            var objectLine = _memoryReader.ReadLine();
+            var hintDictionary = ParseDirectObject(_memoryReader);
+            
+            // var hintTableSlice = _memoryReader.Slice((int)hintTableStart.Value, (int)hintTableLength.Value);
+            // var hintTableReader = new MemoryInputBytes(hintTableSlice);
+            // var hintStreamDict = GetNextObject(hintTableReader);
 
-        inputBytes.RewindUntil("obj"u8);
+            if (hintDictionary is not StreamObject dict) throw new Exception("WTF!!");
+            var decoded = dict.DecodedStream;
+            
+        }
+    }
+    
+    private bool IsLinearized()
+    {
+        var offset = _memoryReader.FindFirstPatternOffset("/Linearized"u8, 4_000_000);
+
+        //_memoryReader.RewindUntil("obj"u8);
         
-        inputBytes.Seek(0);
+        //_memoryReader.Seek(0);
         
         return offset != null;
     }
@@ -85,22 +111,22 @@ public class PdfParser
                 return linearizedDict;
                 //This is a linearized hint table
                 //For a test, let's grab the hint stream and giure out what it is....
-                var hintArray = dictionaryObject.GetAs<ArrayObject>("H");
-                var offset = hintArray[0] as NumericObject ?? throw new UnreachableException();
-                var length = hintArray[1] as NumericObject ?? throw new UnreachableException();
-
-                _memoryReader.Seek((int)offset.Value);
-                var hintStream = _memoryReader.Slice((int)offset.Value, (int)length.Value);
-
-                //Console.WriteLine(Encoding.ASCII.GetString(hintStream.Span));
-                
-                var hintStreamObject = GetNextObject(_memoryReader);
-
-                if (hintStreamObject is DictionaryObject { IsStream: true, Stream: not null } streamObject)
-                {
-                    var reader = streamObject.Stream.Reader;
-                    //Console.WriteLine(streamObject.Stream.DecodedStream);
-                }
+                // var hintArray = dictionaryObject.GetAs<ArrayObject>("H");
+                // var offset = hintArray[0] as NumericObject ?? throw new UnreachableException();
+                // var length = hintArray[1] as NumericObject ?? throw new UnreachableException();
+                //
+                // _memoryReader.Seek((int)offset.Value);
+                // var hintStream = _memoryReader.Slice((int)offset.Value, (int)length.Value);
+                //
+                // //Console.WriteLine(Encoding.ASCII.GetString(hintStream.Span));
+                //
+                // var hintStreamObject = GetNextObject(_memoryReader);
+                //
+                // if (hintStreamObject is DictionaryObject { HasLength: true, Stream: not null } streamObject)
+                // {
+                //     var reader = streamObject.Stream.Reader;
+                //     //Console.WriteLine(streamObject.Stream.DecodedStream);
+                // }
             }
         }
 
@@ -120,24 +146,64 @@ public class PdfParser
         throw new NotImplementedException();
     }
 
-    private long FindStartTrailer(MemoryInputBytes inputBytes)
+    private Trailer ParseTrailer(MemoryInputBytes inputBytes)
     {
         ReadOnlySpan<byte> trailerMarker = "trailer"u8;
-        var offset = inputBytes.FindFirstPatternOffset(trailerMarker);
+        var trailerOffset = inputBytes.FindFirstPatternOffset(trailerMarker);
 
-        return offset ?? 0;
+        if (!trailerOffset.HasValue)
+        {
+            throw new Exception("Trailer not found!");
+        }
+        
+        inputBytes.MoveNext();
+        var dictionary = ParseDictionaryObject(inputBytes);
+        
+        return new Trailer(dictionary);
     }
 
     public long FindStartXrefOffset()
     {
+        //A PDF can have multiple startxref (incremental update feature in the spec). 
+        //At load time, ONLY the LAST startxref matters and thats the boy we should load. 
+        var readStart = _memoryReader.Length - 2000;
+        _memoryReader.Seek(readStart > 0 ? readStart : 0);
+        
         ReadOnlySpan<byte> startXrefMarker = "startxref"u8;
         var startXref = _memoryReader.FindFirstPatternOffset(startXrefMarker) ?? throw new Exception("StartXref was not found.");
-        _memoryReader.MoveNext();
+        _memoryReader.NextLine();
         var nextLine = _memoryReader.ReadLine();
         long.TryParse(nextLine, out var result);
         return result;
     }
 
+    private CrossReferenceTable ParseXrefStream(MemoryInputBytes inputBytes)
+    {
+        //We are probably in a cross-reference stream then...
+        //TODO: Parse Cross Reference Stream
+        var objectLine = inputBytes.ReadLine();
+        var objectLineStr = Encoding.ASCII.GetString(objectLine);
+        if (objectLineStr.Contains("obj"))
+        {
+            //This is an xref stream
+            var xrefStreamObj = ParseDirectObject(inputBytes);
+            if (xrefStreamObj is not StreamObject xrefStreamDict)
+                throw new Exception($"Expected an xref stream object, got something else: {xrefStreamObj.GetType()}");
+
+            var type = xrefStreamDict.GetAs<NameObject>("Type");
+                
+            if (!type.Name.Equals("XRef", StringComparison.OrdinalIgnoreCase))
+            {
+                throw new Exception("Expected a xref stream object but got something else");
+            }
+            //This is a xref stream object!
+            var xrefStream = new CrossReferenceStreamDictionary(xrefStreamDict);
+            xrefStream.GetEntries();
+        }
+        
+        throw new Exception("Sup Bruh");
+    }
+    
     private CrossReferenceTable ParseXrefTable(MemoryInputBytes inputBytes, long startXref)
     {
         inputBytes.Seek(startXref);
@@ -146,9 +212,8 @@ public class PdfParser
         ReadOnlySpan<byte> xrefMarker = "xref"u8;
         if (!inputBytes.Match(xrefMarker))
         {
-            throw new Exception("Expected xref in next sequence of bytes.");
+            return ParseXrefStream(inputBytes);
         }
-        
         
         inputBytes.NextLine();
         
@@ -172,35 +237,28 @@ public class PdfParser
     {
         inputBytes.Seek(offset);
         var objectLine = inputBytes.ReadLine();
-
         try
         {
             return ParseDirectObject(inputBytes);
         }
         catch (Exception ex)
         {
-            throw new Exception($"Exception was thrown trying to parse object: {Encoding.ASCII.GetString(objectLine)}", ex);
+            var objectSpan = inputBytes.Slice((int)offset, (int)(inputBytes.CurrentOffset - offset)).Span;
+            throw new Exception($"Exception was thrown trying to parse object: {Encoding.ASCII.GetString(objectSpan)}", ex);
         }
     }
     
     private DirectObject ParseObjectByReference(IndirectReference objectReference)
     {
-        if (!_objectTable.TryGetValue(objectReference, out var dirObject))
-        {
-            var offset = _crossReferenceTable.ObjectOffsets[objectReference];
-            dirObject = ParseObjectByOffset(_memoryReader, offset);
-            _objectTable.TryAdd(objectReference, dirObject);
-        }
-
+        if (_objectTable.TryGetValue(objectReference, out var dirObject)) return dirObject;
+        
+        var offset = _crossReferenceTable.ObjectOffsets[objectReference];
+        dirObject = ParseObjectByOffset(_memoryReader, offset);
         return dirObject;
     }
 
-    private StreamObject ParseStreamObject(MemoryInputBytes inputBytes, StreamFilter encoding, int length)
+    private ReadOnlyMemory<byte> GetStreamBuffer(MemoryInputBytes inputBytes, int length)
     {
-        //Move to the next line
-        //inputBytes.MoveNext();
-        
-        //var streamBegin = inputBytes.ReadLine();
         inputBytes.SkipWhitespace();
         var key = "stream"u8;
         if (!inputBytes.Match(key))
@@ -212,7 +270,7 @@ public class PdfParser
         //Beginning of stream
         inputBytes.SkipWhitespace();
         var begin = inputBytes.CurrentOffset;
-        return new StreamObject(inputBytes.Slice((int)begin, length), encoding, begin, length);
+        return inputBytes.Slice((int)begin, length);
     }
 
     private DictionaryObject ParseDictionaryObject(MemoryInputBytes inputBytes)
@@ -246,7 +304,6 @@ public class PdfParser
                 case '>':
                     if (inputBytes.Peek() == '>')
                     {
-                        //Close out the dictinonary!
                         inputBytes.MoveNext();
                         inputBytes.MoveNext();
                         return new DictionaryObject(dictionary, beginOffset, inputBytes.CurrentOffset - beginOffset);
@@ -302,7 +359,7 @@ public class PdfParser
                     // var directObject = ParseObjectByReference(reference);
                     // inputBytes.Seek(offset);
                     
-                    return new ReferenceObject(reference, _objectTable, begin, inputBytes.CurrentOffset - begin);
+                    return new ReferenceObject(reference, begin, inputBytes.CurrentOffset - begin);
                 }
                 else
                 {
@@ -350,19 +407,13 @@ public class PdfParser
     {
         Debug.Assert(inputBytes.CurrentChar is '(' or '<');
         var begin = inputBytes.CurrentOffset;
-        // ReadOnlySpan<byte> value;
         switch (inputBytes.CurrentChar)
         {
             case '(':
-                inputBytes.ReadUntil(")"u8);
-                
-                //Check if Escaped
-                var escapeKey = inputBytes.LookBehind(2);
-
-                if (escapeKey is 92)
+                do
                 {
                     inputBytes.ReadUntil(")"u8);
-                }
+                } while (inputBytes.LookBehind(2) is 92);
                 break;
             case '<':
                 inputBytes.ReadUntil(">"u8);
@@ -390,7 +441,7 @@ public class PdfParser
 
         inputBytes.MoveNext(); //Move out
         
-        return new ArrayObject(objects, begin, inputBytes.CurrentOffset - begin);
+        return new ArrayObject<DirectObject>(objects, begin, inputBytes.CurrentOffset - begin);
     }
 
     private BooleanObject ParseBooleanObject(MemoryInputBytes inputBytes, bool parseTrue)
@@ -415,37 +466,17 @@ public class PdfParser
         throw new UnreachableException();
     }
 
-    private void HandleStreamDictionary(MemoryInputBytes inputBytes, DictionaryObject streamDictionary)
+    private StreamObject ParseStreamObject(MemoryInputBytes inputBytes, DictionaryObject streamDictionary)
     {
-        //TODO: Read the stream
-        var lengthObject = streamDictionary["Length"];
-        var filterObject = streamDictionary["Filter"];
-
-        StreamFilter encoding = StreamFilter.None;
-        if (filterObject != null && filterObject is NameObject filter)
-        {
-            var filterName = filter.Name;
-            switch (filterName)
-            {
-                case Filters.FlateEncoding:
-                    encoding = StreamFilter.Flate;
-                    break;
-            }
-        }
-                
-        if (lengthObject is NumericObject lengthNumeric)
-        {
-            var streamLength = (int)lengthNumeric.Value;
-            streamDictionary.Stream = ParseStreamObject(inputBytes, encoding, (int)lengthNumeric.Value);
-            inputBytes.Seek(inputBytes.CurrentOffset + streamLength);
-            inputBytes.SkipWhitespace();
-            var endStreamLine = inputBytes.ReadLine();
-            Debug.Assert(endStreamLine.SequenceEqual("endstream"u8));
-        }
-        else
-        {
-            throw new UnreachableException();
-        }
+        var lengthObject = streamDictionary.GetAs<NumericObject>("Length");
+        var streamLength = (int)lengthObject.Value;
+        var streamBuffer = GetStreamBuffer(inputBytes, streamLength);
+        inputBytes.Seek(inputBytes.CurrentOffset + streamLength);
+        inputBytes.SkipWhitespace();
+        var endStreamLine = inputBytes.ReadLine();
+        Debug.Assert(endStreamLine.SequenceEqual("endstream"u8));
+        
+        return new StreamObject(streamBuffer, streamDictionary);
     }
     
     public DirectObject ParseDirectObject(MemoryInputBytes inputBytes)
@@ -456,10 +487,13 @@ public class PdfParser
                 if (inputBytes.Peek() == '<')
                 {
                     var dictionary = ParseDictionaryObject(inputBytes);
-                    if (dictionary.IsStream)
+                    //TODO: Make into it's own function? Repeated code.
+                    inputBytes.SkipWhitespace();
+                    if (dictionary.HasLength && inputBytes.Match("stream"u8))
                     {
-                        HandleStreamDictionary(inputBytes, dictionary);
+                        return ParseStreamObject(inputBytes, dictionary);
                     }
+                    
                     return dictionary;
                 }
                 else

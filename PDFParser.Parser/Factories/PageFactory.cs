@@ -1,5 +1,9 @@
 using System.Diagnostics;
+using ImpromptuInterface;
 using PDFParser.Parser.Document;
+using PDFParser.Parser.Document.Annotations;
+using PDFParser.Parser.Document.Forms;
+using PDFParser.Parser.Document.Structure;
 using PDFParser.Parser.Objects;
 using PDFParser.Parser.Utils;
 
@@ -7,9 +11,9 @@ namespace PDFParser.Parser.Factories;
 
 public static class PageFactory
 {
-    public static Page Create(DictionaryObject pageDictionary, Dictionary<IndirectReference, DirectObject> objects)
+    public static Page Create(DictionaryObject pageDictionary, ObjectTable objects)
     {
-        var mediaBoxArr = pageDictionary.GetAs<ArrayObject>("MediaBox");
+        var mediaBoxArr = pageDictionary.GetAs<ArrayObject<DirectObject>>("MediaBox");
         var arguments = mediaBoxArr.Objects.OfType<NumericObject>().Select(x => (int)x.Value).ToArray();
         var mediaBox = new PageBox(arguments);
 
@@ -23,7 +27,7 @@ public static class PageFactory
                 AddStreamByReference(contentReference);
                 break;
             }
-            case ArrayObject contentArray:
+            case ArrayObject<DirectObject> contentArray:
             {
                 foreach (var contentRef in contentArray.Objects.OfType<ReferenceObject>())
                 {
@@ -38,7 +42,7 @@ public static class PageFactory
         var resourceDictionary = resources switch
         {
             DictionaryObject dict => dict,
-            ReferenceObject referenceObject => referenceObject.Value as DictionaryObject,
+            ReferenceObject referenceObject => objects[referenceObject.Reference] as DictionaryObject,
             _ => throw new ArgumentOutOfRangeException()
         } ?? throw new UnreachableException();
         
@@ -53,20 +57,34 @@ public static class PageFactory
                     return dict;
                 }) ?? throw new UnreachableException();   
         
+        //Annotations
+        // var annotations = pageDictionary.GetAs<DirectObject>("Annots");
+        // switch (annotations)
+        // {
+        //     case ArrayObject annoArray:
+        //         break;
+        //     case ReferenceObject annoRef:
+        //         var annoObj = objects.GetAs<DirectObject>(annoRef.Reference);
+        //         if (annoObj is ArrayObject annoArr)
+        //         {
+        //             foreach (var o in annoArr.Objects)
+        //             {
+        //                 var annotationObjRef = (ReferenceObject)o;
+        //                 var annotationObj = objects.GetAs<DictionaryObject>(annotationObjRef.Reference);
+        //                 var formField = new AcroFormFieldDictionary(annotationObj);
+        //                 var value = formField.FieldValue;
+        //             }
+        //         }
+        //         break;
+        // }
+        
         
         return new Page(mediaBox, streams, fontDictionary);
 
         void AddStreamByReference(ReferenceObject reference)
         {
-            var contentDict = objects.GetAs<DictionaryObject>(reference.Reference);
-            var stream = contentDict.Stream;
-
-            if (stream == null)
-            {
-                throw new UnreachableException();
-            }
-
-            streams.Add(stream);
+            var contentStream = objects.GetAs<StreamObject>(reference.Reference);
+            streams.Add(contentStream);
         }
     }
 }

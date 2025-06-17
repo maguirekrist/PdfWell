@@ -1,10 +1,10 @@
 namespace PDFParser.Parser.Objects;
 
-public class ArrayObject : DirectObject
+public class ArrayObject<T> : DirectObject where T : DirectObject
 {
-    public IReadOnlyList<DirectObject> Objects { get; }
+    public IReadOnlyList<T> Objects { get; }
     
-    public ArrayObject(List<DirectObject> objects, long offset, long length) : base(offset, length)
+    public ArrayObject(List<T> objects, long offset, long length) : base(offset, length)
     {
         Objects = objects;
     }

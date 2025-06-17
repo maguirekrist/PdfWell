@@ -9,8 +9,10 @@ public class Font
     private readonly DictionaryObject _fontDictionary;
 
     private readonly Lazy<IEncoding> _characterMapper;
+
+    private readonly ObjectTable _objectTable;
     
-    public Font(DictionaryObject fontDictionary)
+    public Font(DictionaryObject fontDictionary, ObjectTable objectTable)
     {
         if (fontDictionary.GetAs<NameObject>("Type").Name != "Font")
         {
@@ -18,6 +20,7 @@ public class Font
         }
         
         _fontDictionary = fontDictionary;
+        _objectTable = objectTable;
         _characterMapper = new Lazy<IEncoding>(CreateCharacterMapper);
     }
 
@@ -34,8 +37,8 @@ public class Font
         {
             //Construct a Unicode Character Mapper
             var test = _fontDictionary.GetAs<ReferenceObject>("ToUnicode");
-            var cmapStream = test.Value as DictionaryObject ?? throw new UnreachableException();
-            return new UnicodeCharacterMapper(cmapStream.Stream!.Reader);
+            var cmapStream = _objectTable[test.Reference] as StreamObject ?? throw new UnreachableException();
+            return new UnicodeCharacterMapper(cmapStream.Reader);
         }   
         
         return new DefaultCharacterMapper();

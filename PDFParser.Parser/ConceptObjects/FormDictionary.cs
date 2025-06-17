@@ -5,11 +5,11 @@ namespace PDFParser.Parser.ConceptObjects;
 
 public class FormDictionary
 {
-    public required ArrayObject Fields { get; init; }
+    public required ArrayObject<DirectObject> Fields { get; init; }
     public BooleanObject? NeedAppearances { get; init; }
     public NumericObject? SigFlags { get; init; }
     [PdfDictionaryKey("CO")]
-    public ArrayObject? CalculationOrder { get; init; }
+    public ArrayObject<DirectObject>? CalculationOrder { get; init; }
     [PdfDictionaryKey("DR")]
     public DictionaryObject? ResourceDictionary { get; init; }
     [PdfDictionaryKey("DA")]
