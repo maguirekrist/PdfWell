@@ -7,7 +7,7 @@ public interface IPageDictionary
     NameObject Type { get; }
     ReferenceObject Parent { get; }
     DictionaryObject Resources { get; }
-    ArrayObject<NumericObject> ? MediaBox { get; }
-    ArrayObject<NumericObject> ? CropBox { get; }
+    ArrayObject<DirectObject> ? MediaBox { get; }
+    ArrayObject<DirectObject> ? CropBox { get; }
     ArrayObject<DirectObject> ? Annots { get; }
 }

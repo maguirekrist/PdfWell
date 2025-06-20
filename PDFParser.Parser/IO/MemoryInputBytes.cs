@@ -330,7 +330,7 @@ public class MemoryInputBytes
         var begin = CurrentOffset;
         while (!IsAtEnd())
         {
-            if (CurrentByte.IsNumeric() || CurrentByte.IsAlpha() || CurrentByte == ':' || CurrentByte == '.' || CurrentByte == '#' || CurrentByte == ',' || CurrentByte == '-' || CurrentByte == '&')
+            if (CurrentByte.IsNumeric() || CurrentByte.IsAlpha() || CurrentByte == ':' || CurrentByte == '_' || CurrentByte == '.' || CurrentByte == '#' || CurrentByte == ',' || CurrentByte == '-' || CurrentByte == '&')
             {
                 MoveNext();
             }

@@ -5,7 +5,7 @@ public readonly struct IndirectReference
     public int ObjectNumber { get; }
     public int Generation { get; }
     
-    public IndirectReference(int objectNumber, int generation)
+    public IndirectReference(int objectNumber, int generation = 0)
     {
         ObjectNumber = objectNumber;
         Generation = generation;

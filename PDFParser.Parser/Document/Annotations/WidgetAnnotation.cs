@@ -21,7 +21,7 @@ public class WidgetAnnotation : AnnotationDictionary
     public DirectObject? BorderStyle => _dict.TryGetAs<DirectObject>("BS");
     public DirectObject? Parent => _dict.TryGetAs<DirectObject>("Parent");
     public NumericObject? Rotation => _dict.TryGetAs<NumericObject>("R");
-    public ArrayObject<NumericObject> ? BorderColor => _dict.TryGetAs<ArrayObject<NumericObject> >("BC");
-    public ArrayObject<NumericObject> ? BackgroundColor => _dict.TryGetAs<ArrayObject<NumericObject> >("BG");
+    public ArrayObject<DirectObject> ? BorderColor => _dict.TryGetAs<ArrayObject<DirectObject> >("BC");
+    public ArrayObject<DirectObject> ? BackgroundColor => _dict.TryGetAs<ArrayObject<DirectObject> >("BG");
     
 }

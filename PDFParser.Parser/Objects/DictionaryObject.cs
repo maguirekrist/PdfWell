@@ -9,6 +9,8 @@ public class DictionaryObject : DirectObject
     public Dictionary<NameObject, DirectObject> Dictionary => _dictionary;
 
     public bool HasLength => _dictionary.ContainsKey(new NameObject("Length"));
+
+    public NameObject? Type => TryGetAs<NameObject>("Type");
     
     // public StreamObject? Stream { get; set; }
     

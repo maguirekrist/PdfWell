@@ -10,8 +10,4 @@
       <PackageReference Include="ImpromptuInterface" Version="8.0.6" />
     </ItemGroup>
 
-    <ItemGroup>
-      <Folder Include="Objects\Interfaces\" />
-    </ItemGroup>
-
 </Project>

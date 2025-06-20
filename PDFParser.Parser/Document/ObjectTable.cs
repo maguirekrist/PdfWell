@@ -1,6 +1,7 @@
+using PDFParser.Parser.Objects;
 using PDFParser.Parser.Utils;
 
-namespace PDFParser.Parser.Objects;
+namespace PDFParser.Parser.Document;
 
 public class ObjectTable : Dictionary<IndirectReference, DirectObject>
 {

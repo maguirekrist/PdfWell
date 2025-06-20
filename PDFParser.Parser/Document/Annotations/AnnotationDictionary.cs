@@ -29,7 +29,7 @@ public class AnnotationDictionary
     public AnnotationFlags? Flags => AnnotationFlags != null ? (AnnotationFlags)(int)AnnotationFlags.Value : null;
     
     public NameObject Subtype => _dict.GetAs<NameObject>("Subtype");
-    public ArrayObject<NumericObject> Rect => _dict.GetAs<ArrayObject<NumericObject> >("Rect");
+    public ArrayObject<DirectObject> Rect => _dict.GetAs<ArrayObject<DirectObject> >("Rect");
     public StringObject? Contents => _dict.TryGetAs<StringObject>("Contents");
     
     //Optional - an indirect reference to the page object with which this annotation is associated.
@@ -44,9 +44,9 @@ public class AnnotationDictionary
     //Optional - only required if the appearance dictionary AP contains one or more subdicts. 
     public NameObject? AppearanceState => _dict.TryGetAs<NameObject>("AS");
 
-    public ArrayObject<NumericObject> ? Border => _dict.TryGetAs<ArrayObject<NumericObject> >("Border");
+    public ArrayObject<DirectObject> ? Border => _dict.TryGetAs<ArrayObject<DirectObject> >("Border");
 
-    public ArrayObject<NumericObject> ? Color => _dict.TryGetAs<ArrayObject<NumericObject> >("C");
+    public ArrayObject<DirectObject> ? Color => _dict.TryGetAs<ArrayObject<DirectObject> >("C");
 
     public NumericObject? StructParent => _dict.TryGetAs<NumericObject>("StructParent");
     public DirectObject? OptionalContentMembers => _dict.TryGetAs<DirectObject>("OC");

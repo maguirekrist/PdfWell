@@ -18,33 +18,41 @@ public static class PngFilterDecompressor
 
     private static Span<byte> ApplyPngFilter(Span<byte> buffer, int columns)
     {
-        var bytesPerRow = columns + 1;
+        var bytesPerRow = columns + 1; // 1 byte filter type + data
         var numberOfRows = buffer.Length / bytesPerRow;
-        var upRowData = new byte[bytesPerRow];
-        for (var i = 0; i < buffer.Length; i += bytesPerRow)
-        {
-            var rowData = buffer[i..(bytesPerRow + i)];
-            var predictionByte = rowData[0];
+        var output = new byte[columns * numberOfRows];
+        var upRow = new byte[columns];
 
-            switch (predictionByte)
+        for (int row = 0; row < numberOfRows; row++)
+        {
+            int inputOffset = row * bytesPerRow;
+            byte filterType = buffer[inputOffset];
+            var rowOutputOffset = row * columns;
+
+            switch (filterType)
             {
-                case 2:
-                    for (var j = 1; j < bytesPerRow; j++)
+                case 0: // None
+                    buffer.Slice(inputOffset + 1, columns).CopyTo(output.AsSpan(rowOutputOffset));
+                    break;
+
+                case 2: // Up
+                    for (int col = 0; col < columns; col++)
                     {
-                        var upSample = upRowData[j];
-                        rowData[j] = (byte)((rowData[j] + upSample) % 256);
+                        byte raw = buffer[inputOffset + 1 + col];
+                        byte up = upRow[col];
+                        output[rowOutputOffset + col] = (byte)((raw + up) & 0xFF);
                     }
                     break;
-                case 0:
-                    break;
+
                 default:
-                    throw new NotSupportedException($"Unsupported PNG filter type: {predictionByte}");
+                    throw new NotSupportedException($"Unsupported PNG filter type: {filterType}");
             }
-            
-            rowData.CopyTo(upRowData);
+
+            // Save current output row for next row's Up filter
+            output.AsSpan(rowOutputOffset, columns).CopyTo(upRow);
         }
 
-        return buffer;
+        return output;
     }
     
 }

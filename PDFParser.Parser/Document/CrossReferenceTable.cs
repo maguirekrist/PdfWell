@@ -1,4 +1,6 @@
-namespace PDFParser.Parser.Objects;
+using PDFParser.Parser.Objects;
+
+namespace PDFParser.Parser.Document;
 
 public class CrossReferenceTable : DirectObject
 {

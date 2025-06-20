@@ -15,11 +15,11 @@ public class PdfDocument
     private readonly Lazy<DocumentCatalog> _catalog;
     
     private readonly ObjectTable _objectTable;
-    private readonly Trailer _trailer;
+    private readonly Trailer? _trailer;
     
     public ObjectTable ObjectTable => _objectTable;
     
-    public PdfDocument(ObjectTable objects, Trailer trailer)
+    public PdfDocument(ObjectTable objects, Trailer? trailer = null)
     {
         _objectTable = objects;
         _trailer = trailer;

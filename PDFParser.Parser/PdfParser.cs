@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Text;
 using PDFParser.Parser.ConceptObjects;
+using PDFParser.Parser.Document;
 using PDFParser.Parser.Exceptions;
 using PDFParser.Parser.IO;
 using PDFParser.Parser.Objects;
@@ -11,9 +12,11 @@ namespace PDFParser.Parser;
 public class PdfParser
 {
     private readonly MemoryInputBytes _memoryReader;
-    private CrossReferenceTable _crossReferenceTable = null!;
-    private Trailer _trailer = null!;
+    private CrossReferenceTable? _crossReferenceTable = null;
+    private Trailer? _trailer;
     private ObjectTable _objectTable = new ObjectTable();
+    private IndirectReference? _encryptionRef;
+    private EncryptionDictionary? _encryption; 
 
     public PdfParser(byte[] pdfData, IMatcher? matcherStrategy = null)
     {
@@ -46,12 +49,32 @@ public class PdfParser
         var startXref = FindStartXrefOffset();
         _memoryReader.Seek(0);
         
-        _crossReferenceTable = ParseXrefTable(_memoryReader, startXref);
+        var xrefTable = ParseXrefs(_memoryReader, startXref);
         _trailer = ParseTrailer(_memoryReader);
-        foreach (var (key, val) in _crossReferenceTable.ObjectOffsets)
+        //TODO: Handle Encryption
+        if (_encryptionRef.HasValue)
         {
-            var obj = ParseObjectByReference(key);
+            xrefTable.TryGetValue(_encryptionRef.Value, out var offsetVal);
+            var obj = ParseObjectByOffset(_memoryReader, offsetVal, out var _);
+            if (obj is DictionaryObject dict)
+            {
+                //TODO: Handle encryption dictionary.
+                var encryptionDict = new EncryptionDictionary(dict);
+            }
+        }
+        
+        foreach (var (xRef, offset) in xrefTable)
+        {
+            var obj = ParseObjectByOffset(_memoryReader, offset, out var key);
             _objectTable.TryAdd(key, obj);
+        }
+        
+        //TODO: Handle Object Streams
+        var objStreams = _objectTable.Values.OfType<ObjectStream>().ToList();
+        foreach (var objStream in objStreams)
+        {
+            var decodedStream = objStream.DecodedStream;
+            var asAscii = Encoding.ASCII.GetString(decodedStream.Span);
         }
 
         return new PdfDocument(_objectTable, _trailer) { IsLinearized = isLinearized };
@@ -140,20 +163,21 @@ public class PdfParser
         return ParseDirectObject(inputBytes);
     }
     
+    //TODO:
     private string FindPdfVersion(MemoryInputBytes inputBytes)
     {
         //Get the first line
         throw new NotImplementedException();
     }
 
-    private Trailer ParseTrailer(MemoryInputBytes inputBytes)
+    private Trailer? ParseTrailer(MemoryInputBytes inputBytes)
     {
         ReadOnlySpan<byte> trailerMarker = "trailer"u8;
         var trailerOffset = inputBytes.FindFirstPatternOffset(trailerMarker);
 
         if (!trailerOffset.HasValue)
         {
-            throw new Exception("Trailer not found!");
+            return null;
         }
         
         inputBytes.MoveNext();
@@ -177,34 +201,37 @@ public class PdfParser
         return result;
     }
 
-    private CrossReferenceTable ParseXrefStream(MemoryInputBytes inputBytes)
+    private CrossReferenceStreamDictionary ParseXrefStream(MemoryInputBytes inputBytes)
     {
-        //We are probably in a cross-reference stream then...
-        //TODO: Parse Cross Reference Stream
+        
         var objectLine = inputBytes.ReadLine();
         var objectLineStr = Encoding.ASCII.GetString(objectLine);
-        if (objectLineStr.Contains("obj"))
-        {
-            //This is an xref stream
-            var xrefStreamObj = ParseDirectObject(inputBytes);
-            if (xrefStreamObj is not StreamObject xrefStreamDict)
-                throw new Exception($"Expected an xref stream object, got something else: {xrefStreamObj.GetType()}");
+        if (!objectLineStr.Contains("obj")) throw new UnreachableException();
+        
+        //This is an xref stream
+        var xrefStreamObj = ParseDirectObject(inputBytes);
+        if (xrefStreamObj is not StreamObject xrefStreamDict)
+            throw new Exception($"Expected an xref stream object, got something else: {xrefStreamObj.GetType()}");
 
-            var type = xrefStreamDict.GetAs<NameObject>("Type");
+        var type = xrefStreamDict.GetAs<NameObject>("Type");
                 
-            if (!type.Name.Equals("XRef", StringComparison.OrdinalIgnoreCase))
-            {
-                throw new Exception("Expected a xref stream object but got something else");
-            }
-            //This is a xref stream object!
-            var xrefStream = new CrossReferenceStreamDictionary(xrefStreamDict);
-            xrefStream.GetEntries();
+        if (!type.Name.Equals("XRef", StringComparison.OrdinalIgnoreCase))
+        {
+            throw new Exception("Expected a xref stream object but got something else");
+        }
+
+        var encryptRef = xrefStreamDict.TryGetAs<ReferenceObject>("Encrypt");
+        if (encryptRef != null)
+        {
+            //Parse and build encryption dictionary object
+            //throw new Exception("WOW!");
         }
         
-        throw new Exception("Sup Bruh");
+        //This is a xref stream object!
+        return new CrossReferenceStreamDictionary(xrefStreamDict);
     }
     
-    private CrossReferenceTable ParseXrefTable(MemoryInputBytes inputBytes, long startXref)
+    private Dictionary<IndirectReference, long> ParseXrefs(MemoryInputBytes inputBytes, long startXref)
     {
         inputBytes.Seek(startXref);
         var xrefTable = new Dictionary<IndirectReference, long>();
@@ -212,7 +239,12 @@ public class PdfParser
         ReadOnlySpan<byte> xrefMarker = "xref"u8;
         if (!inputBytes.Match(xrefMarker))
         {
-            return ParseXrefStream(inputBytes);
+            var xrefStream = ParseXrefStream(inputBytes);
+            if (xrefStream.HasKey("Encrypt"))
+            {
+                _encryptionRef = xrefStream.GetAs<ReferenceObject>("Encrypt").Reference;
+            }
+            return ResolveXrefTable(xrefStream);
         }
         
         inputBytes.NextLine();
@@ -230,13 +262,34 @@ public class PdfParser
             }
         }
         
-        return new CrossReferenceTable(xrefTable, startXref, inputBytes.CurrentOffset - startXref);
+        //var xrefTable = new CrossReferenceTable(xrefTable, startXref, inputBytes.CurrentOffset - startXref);
+        return xrefTable;
     }
 
-    private DirectObject ParseObjectByOffset(MemoryInputBytes inputBytes, long offset)
+    private Dictionary<IndirectReference, long> ResolveXrefTable(CrossReferenceStreamDictionary xrefStream)
+    {
+        var xrefTable = new Dictionary<IndirectReference, long>();
+        
+        //Check for Previous XRef stream
+        var prevXrefStream = xrefStream.PreviousXrefStream;
+        while (prevXrefStream != null)
+        {
+            _memoryReader.Seek((int)prevXrefStream.Value);
+            var prevStream = ParseXrefStream(_memoryReader);
+            xrefTable = xrefTable.Concat(prevStream.XrefTable).ToDictionary();
+            prevXrefStream = prevStream.PreviousXrefStream;
+        }
+        
+        xrefTable = xrefTable.Concat(xrefStream.XrefTable).ToDictionary();
+        return xrefTable;
+    }
+
+    private DirectObject ParseObjectByOffset(MemoryInputBytes inputBytes, long offset, out IndirectReference objectKey)
     {
         inputBytes.Seek(offset);
         var objectLine = inputBytes.ReadLine();
+        
+        objectKey = ParseObjectLine(objectLine);
         try
         {
             return ParseDirectObject(inputBytes);
@@ -251,13 +304,29 @@ public class PdfParser
     private DirectObject ParseObjectByReference(IndirectReference objectReference)
     {
         if (_objectTable.TryGetValue(objectReference, out var dirObject)) return dirObject;
+        if (_crossReferenceTable == null) throw new Exception("Parser Bad State! Cross Reference Table is NULL!");
         
         var offset = _crossReferenceTable.ObjectOffsets[objectReference];
-        dirObject = ParseObjectByOffset(_memoryReader, offset);
+        dirObject = ParseObjectByOffset(_memoryReader, offset, out _);
         return dirObject;
     }
 
-    private ReadOnlyMemory<byte> GetStreamBuffer(MemoryInputBytes inputBytes, int length)
+    private IndirectReference ParseObjectLine(ReadOnlySpan<byte> objectLine)
+    {
+        var objectLineStr = Encoding.ASCII.GetString(objectLine);
+        if (!objectLineStr.Contains("obj")) throw new ArgumentException($"Invalid object line: {objectLineStr}");
+        var index = 0;
+        while (!char.IsWhiteSpace((char)objectLine[index]))
+        {
+            index++;
+        }
+
+        int.TryParse(objectLine.Slice(0, index), out var objNumber);
+
+        return new IndirectReference(objNumber);
+    }
+    
+    private static ReadOnlyMemory<byte> GetStreamBuffer(MemoryInputBytes inputBytes, int length)
     {
         inputBytes.SkipWhitespace();
         var key = "stream"u8;
@@ -281,7 +350,7 @@ public class PdfParser
 
         if (!inputBytes.Match("<<"u8))
         {
-            throw new Exception("What the ehck?!!?");
+            throw new Exception($"Expected dictionary begin token (<<) read: {inputBytes.CurrentChar}");
         }
         
         while (!inputBytes.IsAtEnd())
@@ -441,6 +510,8 @@ public class PdfParser
 
         inputBytes.MoveNext(); //Move out
         
+        //TODO: Handle the generic parameter to allow for more type support
+        //TODO: Can PDF Arrays be of multiple types? 
         return new ArrayObject<DirectObject>(objects, begin, inputBytes.CurrentOffset - begin);
     }
 
@@ -466,7 +537,7 @@ public class PdfParser
         throw new UnreachableException();
     }
 
-    private StreamObject ParseStreamObject(MemoryInputBytes inputBytes, DictionaryObject streamDictionary)
+    private static StreamObject ParseStreamObject(MemoryInputBytes inputBytes, DictionaryObject streamDictionary)
     {
         var lengthObject = streamDictionary.GetAs<NumericObject>("Length");
         var streamLength = (int)lengthObject.Value;
@@ -476,7 +547,11 @@ public class PdfParser
         var endStreamLine = inputBytes.ReadLine();
         Debug.Assert(endStreamLine.SequenceEqual("endstream"u8));
         
-        return new StreamObject(streamBuffer, streamDictionary);
+        return streamDictionary.Type?.Name switch
+        {
+            "ObjStm" => new ObjectStream(streamBuffer, streamDictionary),
+            _ => new StreamObject(streamBuffer, streamDictionary)
+        };
     }
     
     public DirectObject ParseDirectObject(MemoryInputBytes inputBytes)

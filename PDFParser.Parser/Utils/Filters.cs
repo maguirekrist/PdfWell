@@ -1,4 +1,4 @@
-namespace PDFParser.Parser.Objects;
+namespace PDFParser.Parser.Utils;
 
 public static class Filters
 {
