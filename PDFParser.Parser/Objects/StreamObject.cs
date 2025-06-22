@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.IO.Compression;
 using System.Text;
 using Dynamitey.DynamicObjects;
+using PDFParser.Parser.Crypt;
 using PDFParser.Parser.Document;
 using PDFParser.Parser.IO;
 using PDFParser.Parser.Utils;
@@ -54,7 +55,7 @@ public class StreamObject : DictionaryObject
     public StreamFilter Filter => GetFilter();
 
     public DecoderParams? DecoderParams => GetDecoderParams();
-    
+
     public StreamObject(ReadOnlyMemory<byte> buffer, DictionaryObject streamDictionary) : base(streamDictionary)
     {
         _data = buffer;

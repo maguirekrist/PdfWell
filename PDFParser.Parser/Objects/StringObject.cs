@@ -31,9 +31,10 @@ public class StringObject : DirectObject
 
     private byte[] GetCharacterCodes()
     {
+        var inner = _data.Span.Slice(1, _data.Length - 2);
         return IsHex ? 
-            HexToBytes(_data.Span.Slice(1, _data.Length - 2)) : 
-            _data.Span.Slice(1, _data.Length - 1).ToArray();
+            HexToBytes(inner) : 
+            inner.ToArray();
     }
 
     private string DecodePdfString()
@@ -48,25 +49,29 @@ public class StringObject : DirectObject
         return Encoding.GetEncoding(28591).GetString(bytes);
     }
 
-    private byte[] HexToBytes(ReadOnlySpan<byte> data)
+    private static byte[] HexToBytes(ReadOnlySpan<byte> data)
     {
-        if (data.Length % 2 != 0)
-        {
-            throw new ArgumentException("Invalid Hex stream!");
-        }
+        int len = data.Length;
+        bool isOdd = (len % 2 != 0);
+        int byteLen = (len + 1) / 2;
 
-        var bytes = new byte[data.Length / 2];
-        //byte[] bytes = new byte[data.Length / 2];
-        for (int i = 0; i < data.Length; i += 2)
+        byte[] bytes = new byte[byteLen];
+
+        for (int i = 0; i < len; i += 2)
         {
-            int highNibble = GetHexValue((char)data[i]) << 4;
-            int lowNibble = GetHexValue((char)data[i + 1]);
-            bytes[i / 2] = (byte)(highNibble | lowNibble);
+            int hi = GetHexValue((char)data[i]);
+            int lo;
+
+            if (i + 1 < len)
+                lo = GetHexValue((char)data[i + 1]);
+            else
+                lo = 0; // pad final nibble with 0 if odd-length
+
+            bytes[i / 2] = (byte)((hi << 4) | lo);
         }
 
         return bytes;
     }
-    
     private static int GetHexValue(char hex)
     {
         // Convert a single HEX character to its numeric value

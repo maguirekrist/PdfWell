@@ -60,13 +60,18 @@ public class PdfDocument
         return new DocumentCatalog(catalogDict);
     }
 
+    //TODO: See if this is even needed at the document level.
     private EncryptionDictionary? GetEncryption()
     {
-        var encryptReference = _trailer.Encrypt;
-        if (encryptReference == null) return null;
-
-        var encryptDict = _objectTable.GetAs<DictionaryObject>(encryptReference.Reference);
-        return new EncryptionDictionary(encryptDict);
+        // var encryptReference = _trailer.Encrypt;
+        // if (encryptReference == null) return null;
+        //
+        // var encryptDict = _objectTable.GetAs<DictionaryObject>(encryptReference.Reference);
+        // var dict = new EncryptionDictionary(encryptDict);
+        //
+        // dict.DecryptUser("");
+        // return dict;
+        return null;
     }
 
     public AcroFormDictionary? GetAcroForm()

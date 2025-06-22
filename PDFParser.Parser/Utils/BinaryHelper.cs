@@ -4,6 +4,24 @@ using System.Runtime.InteropServices;
 
 namespace PDFParser.Parser.Utils;
 
+public class BinaryBuilder
+{
+    private List<byte[]> _buffers = new();
+    public BinaryBuilder()
+    {
+    }
+
+    public void Add(Span<byte> buffer)
+    {
+        _buffers.Add(buffer.ToArray());
+    }
+
+    public byte[] Build()
+    {
+        return BinaryHelper.Combine(_buffers.ToArray());
+    }
+}
+
 public static class BinaryHelper
 {
     public static int ReadInt32(ReadOnlySpan<byte> span)
@@ -24,6 +42,21 @@ public static class BinaryHelper
         }
 
         return value;
+    }
+
+    public static byte[] Combine(params byte[][] arrays)
+    {
+        var length = arrays.Sum(a => a.Length);
+        var result = new byte[length];
+        int offset = 0;
+
+        foreach (var array in arrays)
+        {
+            Buffer.BlockCopy(array, 0, result, offset, array.Length);
+            offset += array.Length;
+        }
+
+        return result;
     }
     
     

@@ -1,4 +1,4 @@
-namespace PDFParser.Parser.Math;
+namespace PDFParser.Parser.MyMath;
 
 public class Matrix<T> where T : struct
 {

@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Text;
 using PDFParser.Parser.ConceptObjects;
+using PDFParser.Parser.Crypt;
 using PDFParser.Parser.Document;
 using PDFParser.Parser.Exceptions;
 using PDFParser.Parser.IO;
@@ -16,7 +17,10 @@ public class PdfParser
     private Trailer? _trailer;
     private ObjectTable _objectTable = new ObjectTable();
     private IndirectReference? _encryptionRef;
-    private EncryptionDictionary? _encryption; 
+    private IndirectReference _rootObjectBeingParsed = new IndirectReference(0);
+    private EncryptionDictionary? _encryption;
+    private ArrayObject<DirectObject>? _fileIdArray;
+    private IDecryptStrategy? _decryptStrategy;
 
     public PdfParser(byte[] pdfData, IMatcher? matcherStrategy = null)
     {
@@ -37,12 +41,7 @@ public class PdfParser
         //This is how we'll do it.
         
         
-        bool isLinearized = IsLinearized();
-        // if (IsLinearized())
-        // {
-        //     _memoryReader.Seek(0);
-        //     ParseLinearized();
-        // }
+        var isLinearized = IsLinearized();
 
         _memoryReader.Seek(0);
         
@@ -51,20 +50,21 @@ public class PdfParser
         
         var xrefTable = ParseXrefs(_memoryReader, startXref);
         _trailer = ParseTrailer(_memoryReader);
-        //TODO: Handle Encryption
         if (_encryptionRef.HasValue)
         {
             xrefTable.TryGetValue(_encryptionRef.Value, out var offsetVal);
             var obj = ParseObjectByOffset(_memoryReader, offsetVal, out var _);
             if (obj is DictionaryObject dict)
             {
-                //TODO: Handle encryption dictionary.
-                var encryptionDict = new EncryptionDictionary(dict);
+                var encryptionDict = new EncryptionDictionary(dict, _fileIdArray!);
+                var cryptKey = encryptionDict.GetGlobalEncryptionKey();
+                _decryptStrategy = new AESV2DecryptStrategy(cryptKey);
             }
         }
         
         foreach (var (xRef, offset) in xrefTable)
         {
+            _rootObjectBeingParsed = xRef;
             var obj = ParseObjectByOffset(_memoryReader, offset, out var key);
             _objectTable.TryAdd(key, obj);
         }
@@ -244,6 +244,12 @@ public class PdfParser
             {
                 _encryptionRef = xrefStream.GetAs<ReferenceObject>("Encrypt").Reference;
             }
+
+            if (xrefStream.HasKey("ID"))
+            {
+                _fileIdArray = xrefStream.TryGetAs<ArrayObject<DirectObject>>("ID");
+            }
+            
             return ResolveXrefTable(xrefStream);
         }
         
@@ -290,6 +296,8 @@ public class PdfParser
         var objectLine = inputBytes.ReadLine();
         
         objectKey = ParseObjectLine(objectLine);
+        
+        
         try
         {
             return ParseDirectObject(inputBytes);
@@ -537,7 +545,7 @@ public class PdfParser
         throw new UnreachableException();
     }
 
-    private static StreamObject ParseStreamObject(MemoryInputBytes inputBytes, DictionaryObject streamDictionary)
+    private StreamObject ParseStreamObject(MemoryInputBytes inputBytes, DictionaryObject streamDictionary)
     {
         var lengthObject = streamDictionary.GetAs<NumericObject>("Length");
         var streamLength = (int)lengthObject.Value;
@@ -546,6 +554,12 @@ public class PdfParser
         inputBytes.SkipWhitespace();
         var endStreamLine = inputBytes.ReadLine();
         Debug.Assert(endStreamLine.SequenceEqual("endstream"u8));
+        
+        //TODO: If the PDF is encrypted, we must attempt to decrypt hte streamBuffer here... 
+        if (_decryptStrategy != null)
+        {
+            streamBuffer = _decryptStrategy.DecryptBuffer(streamBuffer.ToArray(), _rootObjectBeingParsed);
+        }
         
         return streamDictionary.Type?.Name switch
         {
