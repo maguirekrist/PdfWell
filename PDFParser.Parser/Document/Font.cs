@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using PDFParser.Parser.IO;
 using PDFParser.Parser.Objects;
 using PDFParser.Parser.Stream.Font;
 
@@ -38,7 +39,7 @@ public class Font
             //Construct a Unicode Character Mapper
             var test = _fontDictionary.GetAs<ReferenceObject>("ToUnicode");
             var cmapStream = _objectTable[test.Reference] as StreamObject ?? throw new UnreachableException();
-            return new UnicodeCharacterMapper(cmapStream.Reader);
+            return new UnicodeCharacterMapper(new MemoryInputBytes(cmapStream.Data));
         }   
         
         return new DefaultCharacterMapper();

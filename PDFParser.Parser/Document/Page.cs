@@ -37,7 +37,7 @@ public class Page
 
         foreach (var content in _contents)
         {
-            var streamReader = content.Reader;
+            var streamReader = new MemoryInputBytes(content.Data);
             var parser = new PdfParser(streamReader);
             while(!streamReader.IsAtEnd())
             {

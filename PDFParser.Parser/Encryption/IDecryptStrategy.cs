@@ -1,6 +1,6 @@
 using PDFParser.Parser.Objects;
 
-namespace PDFParser.Parser.Crypt;
+namespace PDFParser.Parser.Encryption;
 
 public interface IDecryptStrategy
 {

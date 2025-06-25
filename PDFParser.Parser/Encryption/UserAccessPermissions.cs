@@ -1,4 +1,4 @@
-namespace PDFParser.Parser.Crypt;
+namespace PDFParser.Parser.Encryption;
 
 
 //PDF integer objects can be interpreted as binary values in a signed-twos complement form.

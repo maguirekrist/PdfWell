@@ -5,6 +5,7 @@ using System.Text;
 using Org.BouncyCastle.Crypto.Engines;
 using PDFParser.Parser.Attributes;
 using PDFParser.Parser.Crypt;
+using PDFParser.Parser.Encryption;
 using PDFParser.Parser.Objects;
 using PDFParser.Parser.Utils;
 
@@ -56,84 +57,8 @@ public enum TriggerEvent
 
 public class EncryptionDictionary : DictionaryObject
 {
-
-    private byte[] PaddingBytes => new byte[]
+    public EncryptionDictionary(DictionaryObject dict) : base(dict)
     {
-        0x28, 0xBF, 0x4E, 0x5E, 0x4E, 0x75, 0x8A, 0x41,
-        0x64, 0x00, 0x4E, 0x56, 0xFF, 0xFA, 0x01, 0x08,
-        0x2E, 0x2E, 0x00, 0xB6, 0xD0, 0x68, 0x3E, 0x80,
-        0x2F, 0x0C, 0xA9, 0xFE, 0x64, 0x53, 0x69, 0x7A
-    };
-
-    private ArrayObject<DirectObject> _fileIDs;
-    
-    private byte[] FileId => _fileIDs.GetAs<StringObject>(0).Value;
-    
-    public EncryptionDictionary(DictionaryObject dict, ArrayObject<DirectObject> fileIdArray) : base(dict)
-    {
-        _fileIDs = fileIdArray;
-    }
-
-    // public bool CanDecrypt(string password = "")
-    // {
-    //     //TODO: Handle password
-    //     //TODO: Password needs to be PDFDocEncoding... we should have that as public static function.
-    //     var encryptionKey = DeriveKeyFromPassword(password);
-    //     var trialU = CryptUtil.RC4Encrypt(encryptionKey, PaddingBytes);
-    //     
-    //     if (trialU.SequenceEqual(UserKey.Value))
-    //     {
-    //         throw new Exception("YESS!!");
-    //         return true;
-    //     }
-    //
-    //     if (trialU.SequenceEqual(OwnerKey.Value))
-    //     {
-    //         throw new Exception("USER!");
-    //     }
-    //
-    //
-    //     return false;
-    // }
-
-    public byte[] GetGlobalEncryptionKey(string password = "")
-    {
-        var passwordBytes = Encoding.Default.GetBytes(password);
-        var first32 = passwordBytes.AsSpan(0, Math.Min(32, passwordBytes.Length));
-        var padding = PaddingBytes[..(32-first32.Length)];
-        var paddedPass = BinaryHelper.Combine(first32.ToArray(), padding.ToArray());
-
-        if (string.IsNullOrEmpty(password))
-        {
-            Debug.Assert(paddedPass.SequenceEqual(PaddingBytes));
-        }
-        
-        var ownerEntry = OwnerKey.Value;
-
-        var permissionBytes = BitConverter.GetBytes((int)PermissionFlags.Value);
-
-        var metadataFlag = BitConverter.GetBytes(0xFFFFFFFF);
-
-        var binaryBuilder = new BinaryBuilder();
-
-        binaryBuilder.Add(paddedPass);
-        binaryBuilder.Add(ownerEntry);
-        binaryBuilder.Add(permissionBytes);
-        binaryBuilder.Add(FileId);
-
-        if (EncryptMetadata is { Value: false })
-        {
-            binaryBuilder.Add(metadataFlag);
-        }
-
-        var keyData = binaryBuilder.Build();
-
-        using var md5 = MD5.Create();
-        var hash = md5.ComputeHash(keyData);
-        
-        var keyLength = 16;
-        var encryptionKey = hash[..keyLength];
-        return encryptionKey;
     }
     
     //The name of the preferred security handler for this document.
@@ -157,7 +82,7 @@ public class EncryptionDictionary : DictionaryObject
     [PdfDictionaryKey("V")] public NumericObject AlgorithmCode => GetAs<NumericObject>("V");
     
     //Required - number specifying which revision of the standard security handler shall be used to interpret this dictionary.
-    public NumericObject Revision => GetAs<NumericObject>("R");
+    public int Revision => (int)GetAs<NumericObject>("R").Value;
     
     //Required - 32 bytes if R is 4, 48 bytes long if the value of R is 6. Used in computing the file encryption key.
     public StringObject OwnerKey => GetAs<StringObject>("O");

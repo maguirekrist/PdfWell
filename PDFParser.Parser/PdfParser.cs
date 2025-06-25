@@ -3,7 +3,9 @@ using System.Text;
 using PDFParser.Parser.ConceptObjects;
 using PDFParser.Parser.Crypt;
 using PDFParser.Parser.Document;
+using PDFParser.Parser.Encryption;
 using PDFParser.Parser.Exceptions;
+using PDFParser.Parser.Factories;
 using PDFParser.Parser.IO;
 using PDFParser.Parser.Objects;
 using PDFParser.Parser.Utils;
@@ -20,7 +22,8 @@ public class PdfParser
     private IndirectReference _rootObjectBeingParsed = new IndirectReference(0);
     private EncryptionDictionary? _encryption;
     private ArrayObject<DirectObject>? _fileIdArray;
-    private IDecryptStrategy? _decryptStrategy;
+    private EncryptionHandler? _encryptionHandler;
+    
 
     public PdfParser(byte[] pdfData, IMatcher? matcherStrategy = null)
     {
@@ -56,9 +59,8 @@ public class PdfParser
             var obj = ParseObjectByOffset(_memoryReader, offsetVal, out var _);
             if (obj is DictionaryObject dict)
             {
-                var encryptionDict = new EncryptionDictionary(dict, _fileIdArray!);
-                var cryptKey = encryptionDict.GetGlobalEncryptionKey();
-                _decryptStrategy = new AESV2DecryptStrategy(cryptKey);
+                var encryptionDict = new EncryptionDictionary(dict);
+                _encryptionHandler = new EncryptionHandler(encryptionDict, _fileIdArray!);
             }
         }
         
@@ -70,11 +72,20 @@ public class PdfParser
         }
         
         //TODO: Handle Object Streams
-        var objStreams = _objectTable.Values.OfType<ObjectStream>().ToList();
-        foreach (var objStream in objStreams)
+        var objStreams = _objectTable
+            .Where(kv => kv.Value is ObjectStream) // Filter condition
+            .ToDictionary(kv => kv.Key, kv => (ObjectStream)kv.Value);
+        foreach (var (reference, objStream) in objStreams)
         {
-            var decodedStream = objStream.DecodedStream;
-            var asAscii = Encoding.ASCII.GetString(decodedStream.Span);
+            //1. decrypt
+            var decryptedStream = objStream.Data;
+            if (_encryptionHandler != null)
+            {
+                decryptedStream = _encryptionHandler.Decrypt(objStream.Data, reference);
+            }
+            //Decoding should be handled outside of the class....
+            var decodedStream = CompressionHandler.Decompress(decryptedStream, objStream.Filter, objStream.DecoderParams);
+            var asAscii = Encoding.ASCII.GetString(decodedStream);
         }
 
         return new PdfDocument(_objectTable, _trailer) { IsLinearized = isLinearized };
@@ -105,7 +116,6 @@ public class PdfParser
             // var hintStreamDict = GetNextObject(hintTableReader);
 
             if (hintDictionary is not StreamObject dict) throw new Exception("WTF!!");
-            var decoded = dict.DecodedStream;
             
         }
     }
@@ -282,11 +292,13 @@ public class PdfParser
         {
             _memoryReader.Seek((int)prevXrefStream.Value);
             var prevStream = ParseXrefStream(_memoryReader);
-            xrefTable = xrefTable.Concat(prevStream.XrefTable).ToDictionary();
+            var tempTable = XrefTableFactory.Build(prevStream);
+            xrefTable = xrefTable.Concat(tempTable).ToDictionary();
             prevXrefStream = prevStream.PreviousXrefStream;
         }
-        
-        xrefTable = xrefTable.Concat(xrefStream.XrefTable).ToDictionary();
+
+        var mainTable = XrefTableFactory.Build(xrefStream);
+        xrefTable = xrefTable.Concat(mainTable).ToDictionary();
         return xrefTable;
     }
 
@@ -554,13 +566,7 @@ public class PdfParser
         inputBytes.SkipWhitespace();
         var endStreamLine = inputBytes.ReadLine();
         Debug.Assert(endStreamLine.SequenceEqual("endstream"u8));
-        
-        //TODO: If the PDF is encrypted, we must attempt to decrypt hte streamBuffer here... 
-        if (_decryptStrategy != null)
-        {
-            streamBuffer = _decryptStrategy.DecryptBuffer(streamBuffer.ToArray(), _rootObjectBeingParsed);
-        }
-        
+
         return streamDictionary.Type?.Name switch
         {
             "ObjStm" => new ObjectStream(streamBuffer, streamDictionary),
