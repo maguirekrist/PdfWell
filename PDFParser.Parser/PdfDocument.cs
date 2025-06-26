@@ -11,7 +11,7 @@ namespace PDFParser.Parser;
 public class PdfDocument
 {
     private readonly Lazy<List<Page>> _pages;
-    private readonly Lazy<EncryptionDictionary?> _encryption;
+    //private readonly Lazy<EncryptionDictionary?> _encryption;
     private readonly Lazy<DocumentCatalog> _catalog;
     
     private readonly ObjectTable _objectTable;
@@ -24,13 +24,13 @@ public class PdfDocument
         _objectTable = objects;
         _trailer = trailer;
         _pages = new Lazy<List<Page>>(LoadPages);
-        _encryption = new Lazy<EncryptionDictionary?>(GetEncryption);
+        //_encryption = new Lazy<EncryptionDictionary?>(GetEncryption);
         _catalog = new Lazy<DocumentCatalog>(GetDocumentCatalog);
     }
     
     public List<Page> Pages => _pages.Value;
 
-    public EncryptionDictionary? Encryption => _encryption.Value;
+    //public EncryptionDictionary? Encryption => _encryption.Value;
     public DocumentCatalog DocumentCatalog => _catalog.Value;
 
     public bool IsLinearized { get; init; } = false;
@@ -47,10 +47,17 @@ public class PdfDocument
 
     private List<Page> LoadPages()
     {
-        return _objectTable.Values.OfType<DictionaryObject>()
+        var pageObjects = _objectTable.Values.OfType<DictionaryObject>()
             .Where(x => x["Type"] is NameObject { Name: "Page" })
-            .Select(x => PageFactory.Create(x, _objectTable))
             .ToList();
+
+        var pages = new List<Page>();
+        foreach (var obj in pageObjects)
+        {
+            pages.Add(PageFactory.Create(obj, _objectTable));
+        }
+
+        return pages;
     }
 
     private DocumentCatalog GetDocumentCatalog()
@@ -61,18 +68,18 @@ public class PdfDocument
     }
 
     //TODO: See if this is even needed at the document level.
-    private EncryptionDictionary? GetEncryption()
-    {
-        // var encryptReference = _trailer.Encrypt;
-        // if (encryptReference == null) return null;
-        //
-        // var encryptDict = _objectTable.GetAs<DictionaryObject>(encryptReference.Reference);
-        // var dict = new EncryptionDictionary(encryptDict);
-        //
-        // dict.DecryptUser("");
-        // return dict;
-        return null;
-    }
+    // private EncryptionDictionary? GetEncryption()
+    // {
+    //     // var encryptReference = _trailer.Encrypt;
+    //     // if (encryptReference == null) return null;
+    //     //
+    //     // var encryptDict = _objectTable.GetAs<DictionaryObject>(encryptReference.Reference);
+    //     // var dict = new EncryptionDictionary(encryptDict);
+    //     //
+    //     // dict.DecryptUser("");
+    //     // return dict;
+    //     return null;
+    // }
 
     public AcroFormDictionary? GetAcroForm()
     {

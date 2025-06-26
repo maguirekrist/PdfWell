@@ -83,8 +83,23 @@ public static class PageFactory
 
         void AddStreamByReference(ReferenceObject reference)
         {
-            var contentStream = objects.GetAs<StreamObject>(reference.Reference);
-            streams.Add(contentStream);
+            
+            var contentObj = objects.GetAs<DirectObject>(reference.Reference);
+            switch (contentObj)
+            {
+                case StreamObject contentStream:
+                    streams.Add(contentStream);
+                    return;
+                case ArrayObject<DirectObject> contentArray:
+                    foreach (var arrObj in contentArray.Objects)
+                    {
+                        if (arrObj is ReferenceObject refObj)
+                        {
+                            AddStreamByReference(refObj);
+                        }
+                    }
+                    return;
+            }
         }
     }
 }

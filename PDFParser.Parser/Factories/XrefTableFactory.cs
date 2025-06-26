@@ -11,9 +11,9 @@ public static class XrefTableFactory
 
     public static Dictionary<IndirectReference, long> Build(CrossReferenceStreamDictionary xrefDictionary)
     {
-        Dictionary<IndirectReference, long> _xrefTable = new();
-        Dictionary<IndirectReference, List<int>> _compressedObjectMap = new();
-        List<IndirectReference> _freeObjects = new();
+        Dictionary<IndirectReference, long> xrefTable = new();
+        Dictionary<IndirectReference, List<int>> compressedObjectMap = new();
+        List<IndirectReference> freeObjects = new();
         
         var bytePattern = xrefDictionary.BytePattern;
         var field1Length = (int)((NumericObject)bytePattern.Objects[0]).Value;
@@ -23,7 +23,7 @@ public static class XrefTableFactory
 
         var objectCounter = xrefDictionary.IndexArray != null ? (int)xrefDictionary.IndexArray.GetAs<NumericObject>(0).Value : 0;
 
-        var decodedStream = CompressionHandler.Decompress(xrefDictionary);
+        var decodedStream = CompressionHandler.Decompress(xrefDictionary).Span;
         
         for (var i = 0; i < decodedStream.Length; i += rowLength)
         {
@@ -37,12 +37,12 @@ public static class XrefTableFactory
                 case 0:
                     var nextFreeObjNumber = BinaryHelper.ReadVariableIntBigEndian(fieldTwo);
                     var genNumber = BinaryHelper.ReadVariableIntBigEndian(fieldThree);
-                    _freeObjects.Add(new IndirectReference(objectCounter++, genNumber));
+                    freeObjects.Add(new IndirectReference(objectCounter++, genNumber));
                     break;
                 case 1:
                     var byteOffsetOfObject = BinaryHelper.ReadVariableIntBigEndian(fieldTwo);
                     //var generationNumber = BinaryHelper.ReadVariableIntBigEndian(fieldThree.Span)
-                    _xrefTable.Add(new IndirectReference(objectCounter++), byteOffsetOfObject);
+                    xrefTable.Add(new IndirectReference(objectCounter++), byteOffsetOfObject);
                     break;
                 case 2:
                     
@@ -50,20 +50,20 @@ public static class XrefTableFactory
                     var streamObjNumber = BinaryHelper.ReadVariableIntBigEndian(fieldTwo);
                     var indexInStream = BinaryHelper.ReadVariableIntBigEndian(fieldThree);
                     var reference = new IndirectReference(streamObjNumber);
-                    _compressedObjectMap.TryGetValue(reference, out var list);
+                    compressedObjectMap.TryGetValue(reference, out var list);
                     if (list == null)
                     {
                         list = new();
                     }
                     list.Add(indexInStream);
-                    _compressedObjectMap[reference] = list;
+                    compressedObjectMap[reference] = list;
 
-                    _xrefTable.TryGetValue(new IndirectReference(streamObjNumber), out var streamObjOffset);
-                    _xrefTable.Add(new IndirectReference(objectCounter++), streamObjOffset);
+                    xrefTable.TryGetValue(new IndirectReference(streamObjNumber), out var streamObjOffset);
+                    xrefTable.Add(new IndirectReference(objectCounter++), streamObjOffset);
                     break;
             }
         }
 
-        return _xrefTable;
+        return xrefTable;
     }
 }

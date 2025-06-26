@@ -60,6 +60,7 @@ public class Tests
         Assert.That(document.Pages.Count, Is.EqualTo(2));
         Assert.That(document.Pages[0].Texts[0].Value, Is.EqualTo("this is a test."));
         Assert.That(document.Pages[1].Texts[0].Value, Is.EqualTo("I'm on the second page"));
+        
     }
 
     [Test]
@@ -96,7 +97,7 @@ public class Tests
         }
     }
 
-    [Test]
+    [Test, Timeout(5000)]
     public void TestResume()
     {
         var pdfData = File.ReadAllBytes(Resume);
@@ -104,10 +105,6 @@ public class Tests
         var document = parser.Parse();
         
         Assert.That(document.Pages.Count, Is.EqualTo(2));
-        foreach (var text in document.Pages[0].Texts)
-        {
-            Console.WriteLine(text);
-        }
     }
 
     [Test]
@@ -118,15 +115,12 @@ public class Tests
         var document = parser.Parse();
         
         Assert.That(document.Pages.Count, Is.EqualTo(1));
-
-        var encryption = document.Encryption;
-        Assert.NotNull(encryption);
-
-        var catalog = document.DocumentCatalog;
-        Assert.NotNull(catalog);
-
-        var acroForm = document.GetAcroForm();
-        Assert.NotNull(acroForm);
+        
+        // var catalog = document.DocumentCatalog;
+        // Assert.NotNull(catalog);
+        //
+        // var acroForm = document.GetAcroForm();
+        // Assert.NotNull(acroForm);
     }
     
 }

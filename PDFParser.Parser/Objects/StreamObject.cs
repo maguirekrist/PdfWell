@@ -34,7 +34,6 @@ public class StreamObject : DictionaryObject
     //Streams use Reverse Polish notation, so you see operands followed by operators
     //Operands are expressed as standard PDF objects -- i.e. Array Objects, Named Objects, Numeric Objects, String Objects
     //Operators are special codes that do specific operations, i.e. sets the type face, prints text, sets color, etc.
-    
 
     //This class is simply a wrapper for the stream data... Data represents the contents between stream and endstream
     //The class user is responsible for making sense of the stream.

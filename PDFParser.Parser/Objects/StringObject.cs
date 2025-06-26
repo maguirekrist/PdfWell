@@ -1,7 +1,17 @@
 using System.Buffers;
 using System.Text;
+using PDFParser.Parser.IO;
+using PDFParser.Parser.String;
 
 namespace PDFParser.Parser.Objects;
+
+public enum TextEncoding : byte
+{
+    Iso88591 = 0,
+    Utf16 = 1,
+    Utf16Be = 2,
+    PdfDocEncoding = 3
+}
 
 public class StringObject : DirectObject
 {
@@ -12,22 +22,73 @@ public class StringObject : DirectObject
     //Strings are also regularly encoded as HEX streams that must be processed too!
 
     private readonly ReadOnlyMemory<byte> _data;
-    private readonly Lazy<byte[]> _value;
-    private readonly Lazy<string> _text;
+    
+    //ublic TextEncoding TextEncoding { get; }
     
     public bool IsHex => _data.Span[0] == '<';
-    public byte[] Value => _value.Value;
-    public int Length => _data.Length;
-    public int ByteLength => _value.Value.Length;
+    public byte[] Value { get; }
 
-    public string Text => _text.Value;
-        
     public StringObject(ReadOnlyMemory<byte> data, long offset, long length) : base(offset, length)
     {
         _data = data;
-        _value = new Lazy<byte[]>(GetCharacterCodes);
-        _text = new Lazy<string>(DecodePdfString);
+        var codes = GetCharacterCodes();
+
+        if (!IsHex)
+        {
+            var result = new List<byte>();
+            for (var i = 0; i < codes.Length; i++)
+            {
+                if (codes[i] == '\\')
+                {
+                    i++;
+                    if (i >= codes.Length) break;
+
+                    switch ((char)codes[i])
+                    {
+                        case 'n': result.Add((byte)'\n'); break;
+                        case 'r': result.Add((byte)'\r'); break;
+                        case 't': result.Add((byte)'\t'); break;
+                        case 'b': result.Add((byte)'\b'); break;
+                        case 'f': result.Add((byte)'\f'); break;
+                        case '(': result.Add((byte)'('); break;
+                        case ')': result.Add((byte)')'); break;
+                        case '\\': result.Add((byte)'\\'); break;
+                        case '\n': break; // line continuation, skip
+                        default:
+                            // Octal parsing (up to 3 digits)
+                            string octalDigits = $"{codes[i]}";
+                            for (int j = 0; j < 2 && i + 1 < codes.Length && codes[i + 1] >= '0' && codes[i + 1] <= '7'; j++)
+                            {
+                                i++;
+                                octalDigits += codes[i];
+                            }
+                            result.Add(Convert.ToByte(octalDigits, 8));
+                            break;
+                    }
+                }
+                else
+                {
+                    result.Add((byte)codes[i]);
+                }
+            }
+
+            Value = result.ToArray();
+        }
+        else
+        {
+            Value = codes;
+        }
+        
     }
+
+    // public byte[] GetBytes()
+    // {
+    //     switch (TextEncoding)
+    //     {
+    //         default:
+    //             return IsoEncoding.StringAsBytes(Text);
+    //     }
+    // }
 
     private byte[] GetCharacterCodes()
     {

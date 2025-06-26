@@ -92,7 +92,7 @@ public class MemoryInputBytes
 
     public bool IsAtEnd()
     {
-        return _currentOffset >= _upperbound;
+        return _currentOffset > _upperbound;
     }
 
     public void Seek(long position)
@@ -107,16 +107,16 @@ public class MemoryInputBytes
             return 0;
         }
 
-        var viableLength = (_memory.Length - _currentOffset - 1);
+        var viableLength = (_memory.Length - _currentOffset);
         var readLength = viableLength < buffer.Length ? viableLength : buffer.Length;
         var startFrom = _currentOffset;
         
         _memory.Span.Slice(startFrom, readLength).CopyTo(buffer);
         
-        if (readLength > 0)
-        {
-            // _currentOffset += readLength;
-        }
+        // if (readLength > 0)
+        // {
+        //     // _currentOffset += readLength;
+        // }
 
         return readLength;
     }
@@ -287,7 +287,7 @@ public class MemoryInputBytes
     public ReadOnlySpan<byte> ReadUntil(ReadOnlySpan<byte> option)
     {
         var begin = CurrentOffset;
-        var startEol = FindFirstPatternOffset(option) ?? throw new Exception($"End of File reached while attempting find sequence: {option.ToString()}");
+        var startEol = FindFirstPatternOffset(option) ?? throw new Exception($"End of File reached while attempting find sequence: {Encoding.ASCII.GetString(option)}");
         
         return _memory.Span.Slice((int)begin, (int)(startEol - begin));
     }

@@ -8,17 +8,17 @@ namespace PDFParser.Parser.Encryption;
 public static class CompressionHandler
 {
 
-    public static Span<byte> Decompress(StreamObject streamObject)
+    public static Memory<byte> Decompress(StreamObject streamObject)
     {
         return Decompress(streamObject.Data, streamObject.Filter, streamObject.DecoderParams);
     }
     
-    public static Span<byte> Decompress(Span<byte> data, StreamFilter filter = StreamFilter.None, DecoderParams? decoderParams = null)
+    public static Memory<byte> Decompress(Span<byte> data, StreamFilter filter = StreamFilter.None, DecoderParams? decoderParams = null)
     {
         switch (filter)
         {
             case StreamFilter.None:
-                return data;
+                return data.ToArray();
             case StreamFilter.Flate:
             {
                 var rawBytes = HasZlibHeader(data) ? data.ToArray()[2..] : data.ToArray();

@@ -20,11 +20,11 @@ public class EncryptionHandler
     ];
 
     private readonly EncryptionDictionary _encryptionDictionary;
-    private readonly byte[] _fileID;
+    private readonly byte[] _fileId;
     private readonly byte[] _encryptionKey;
     public EncryptionHandler(EncryptionDictionary encryptionDictionary, ArrayObject<DirectObject> fileIdArray)
     {
-        _fileID = fileIdArray.GetAs<StringObject>(0).Value;
+        _fileId = fileIdArray.GetAs<StringObject>(0).Value;
         _encryptionDictionary = encryptionDictionary;
         _encryptionKey = GetGlobalEncryptionKey([]);
     }
@@ -125,9 +125,9 @@ public class EncryptionHandler
             
             UpdateMd5(md5, BitConverter.GetBytes((int)_encryptionDictionary.PermissionFlags.Value));
 
-            UpdateMd5(md5, _fileID);
+            UpdateMd5(md5, _fileId);
 
-            if (_encryptionDictionary.Revision >= 4 && !_encryptionDictionary.EncryptMetadata!.Value)
+            if (_encryptionDictionary.Revision >= 4 && (_encryptionDictionary.EncryptMetadata?.Value == false))
             {
                 UpdateMd5(md5, [0xFF, 0xFF, 0xFF, 0xFF]);
             }
@@ -173,7 +173,7 @@ public class EncryptionHandler
         binaryBuilder.Add(passwordFull);
         binaryBuilder.Add(ownerEntry);
         binaryBuilder.Add(permissionBytes);
-        binaryBuilder.Add(_fileID);
+        binaryBuilder.Add(_fileId);
 
         if (_encryptionDictionary.EncryptMetadata is { Value: false })
         {
