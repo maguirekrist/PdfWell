@@ -591,6 +591,7 @@ public class PdfParser
         var begin = inputBytes.CurrentOffset;
         if (inputBytes.Match(parseTrue ? "true"u8 : "false"u8))
         {
+            inputBytes.Move(4);
             return new BooleanObject(parseTrue, begin, inputBytes.CurrentOffset - begin);
         }
 
@@ -602,6 +603,7 @@ public class PdfParser
         var begin = inputBytes.CurrentOffset;
         if (inputBytes.Match("null"u8))
         {
+            inputBytes.Move(4);
             return new NullObject(begin, inputBytes.CurrentOffset - begin);
         }
 

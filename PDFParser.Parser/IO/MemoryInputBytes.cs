@@ -26,6 +26,8 @@ public class MemoryInputBytes
     public char CurrentChar => (char)CurrentByte;
 
     public long Length => _memory.Span.Length;
+
+    public byte[] Data => _memory.ToArray();
     
     public bool MoveNext()
     {
@@ -115,7 +117,7 @@ public class MemoryInputBytes
         
         // if (readLength > 0)
         // {
-        //     // _currentOffset += readLength;
+        //     _currentOffset += readLength;
         // }
 
         return readLength;

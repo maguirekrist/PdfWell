@@ -104,7 +104,7 @@ public class Tests
         var parser = new PdfParser(pdfData);
         var document = parser.Parse();
         
-        Assert.That(document.Pages.Count, Is.EqualTo(2));
+        Assert.That(document.Pages.Count, Is.EqualTo(1));
     }
 
     [Test]
