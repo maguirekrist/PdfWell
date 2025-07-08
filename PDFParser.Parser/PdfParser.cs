@@ -84,7 +84,7 @@ public class PdfParser
             }
         }
         
-        return new PdfDocument(_objectTable, _trailer) { IsLinearized = isLinearized };
+        return new PdfDocument(_objectTable, _trailer, _encryptionHandler) { IsLinearized = isLinearized };
     }
 
     private void ParseLinearized()

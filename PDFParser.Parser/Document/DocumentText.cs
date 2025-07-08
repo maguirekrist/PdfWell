@@ -1,6 +1,6 @@
 namespace PDFParser.Parser.Document;
 
-public struct DocumentText
+public readonly struct DocumentText
 {
     public (int, int) Position { get; }
     

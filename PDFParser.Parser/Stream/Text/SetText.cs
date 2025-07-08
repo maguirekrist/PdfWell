@@ -42,6 +42,6 @@ internal class SetText : ITextCommand
     {
         var currentFont = textState.Font;
         var mapper = currentFont?.CharacterMapper ?? new DefaultCharacterMapper();
-        textState.Value = mapper.GetString(_text);
+        textState.AddText(mapper.GetString(_text));
     }
 }

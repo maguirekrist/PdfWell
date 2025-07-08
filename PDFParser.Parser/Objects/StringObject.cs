@@ -26,6 +26,8 @@ public class StringObject : DirectObject
     //ublic TextEncoding TextEncoding { get; }
     
     public bool IsHex => _data.Span[0] == '<';
+
+    public ReadOnlyMemory<byte> Data => _data;
     public byte[] Value { get; }
 
     public StringObject(ReadOnlyMemory<byte> data, long offset, long length) : base(offset, length)
@@ -54,13 +56,14 @@ public class StringObject : DirectObject
                         case ')': result.Add((byte)')'); break;
                         case '\\': result.Add((byte)'\\'); break;
                         case '\n': break; // line continuation, skip
+                        case '\r': break;
                         default:
                             // Octal parsing (up to 3 digits)
-                            string octalDigits = $"{codes[i]}";
-                            for (int j = 0; j < 2 && i + 1 < codes.Length && codes[i + 1] >= '0' && codes[i + 1] <= '7'; j++)
+                            var octalDigits = $"{(char)codes[i]}";
+                            for (var j = 0; j < 2 && i + 1 < codes.Length && codes[i + 1] >= '0' && codes[i + 1] <= '7'; j++)
                             {
                                 i++;
-                                octalDigits += codes[i];
+                                octalDigits += (char)codes[i];
                             }
                             result.Add(Convert.ToByte(octalDigits, 8));
                             break;

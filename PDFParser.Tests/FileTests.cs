@@ -40,7 +40,7 @@ public class Tests
         
         Assert.That(document.ObjectTable.Count, Is.EqualTo(6));
         Assert.That(document.Pages.Count, Is.EqualTo(1));
-        Assert.That(document.Pages[0].Texts[0].Value, Is.EqualTo("this is a test."));
+        Assert.That(document.Pages[0].GetTexts()[0].Value, Is.EqualTo("this is a test."));
         // PdfParser parser = new PdfParser();
         // parser.ParsePdf2(_pdfPath);
         // Console.WriteLine(parser.GetPdfVersion());
@@ -58,8 +58,8 @@ public class Tests
         
         //Assert.That(document.Objects.Count, Is.EqualTo(6));
         Assert.That(document.Pages.Count, Is.EqualTo(2));
-        Assert.That(document.Pages[0].Texts[0].Value, Is.EqualTo("this is a test."));
-        Assert.That(document.Pages[1].Texts[0].Value, Is.EqualTo("I'm on the second page"));
+        Assert.That(document.Pages[0].GetTexts()[0].Value, Is.EqualTo("this is a test."));
+        Assert.That(document.Pages[1].GetTexts()[0].Value, Is.EqualTo("I'm on the second page"));
         
     }
 
@@ -91,7 +91,7 @@ public class Tests
         var document = parser.Parse();
         
         Assert.That(document.Pages.Count, Is.EqualTo(2));
-        foreach (var text in document.Pages[0].Texts)
+        foreach (var text in document.Pages[0].GetTexts())
         {
             Console.WriteLine(text);
         }
@@ -105,6 +105,13 @@ public class Tests
         var document = parser.Parse();
         
         Assert.That(document.Pages.Count, Is.EqualTo(1));
+        var texts = document.Pages[0].GetTexts();
+        foreach (var text in texts)
+        {
+            Console.WriteLine(text);
+        }
+        Assert.NotNull(texts);
+        Assert.True(texts.Count > 0);
     }
 
     [Test]
@@ -115,7 +122,12 @@ public class Tests
         var document = parser.Parse();
         
         Assert.That(document.Pages.Count, Is.EqualTo(1));
-        
+        var texts = document.Pages[0].GetTexts();
+
+        foreach (var text in texts)
+        {
+            Console.WriteLine(text);
+        }
         // var catalog = document.DocumentCatalog;
         // Assert.NotNull(catalog);
         //

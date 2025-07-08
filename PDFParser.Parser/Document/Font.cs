@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using PDFParser.Parser.Encryption;
 using PDFParser.Parser.IO;
 using PDFParser.Parser.Objects;
 using PDFParser.Parser.Stream.Font;
@@ -39,7 +40,8 @@ public class Font
             //Construct a Unicode Character Mapper
             var test = _fontDictionary.GetAs<ReferenceObject>("ToUnicode");
             var cmapStream = _objectTable[test.Reference] as StreamObject ?? throw new UnreachableException();
-            return new UnicodeCharacterMapper(new MemoryInputBytes(cmapStream.Data));
+            var cmapData = CompressionHandler.Decompress(cmapStream);
+            return new UnicodeCharacterMapper(new MemoryInputBytes(cmapData));
         }   
         
         return new DefaultCharacterMapper();

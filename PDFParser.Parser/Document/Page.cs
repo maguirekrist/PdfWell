@@ -1,6 +1,7 @@
 using System.Buffers;
 using System.Collections.ObjectModel;
 using System.Diagnostics;
+using PDFParser.Parser.Encryption;
 using PDFParser.Parser.IO;
 using PDFParser.Parser.Objects;
 using PDFParser.Parser.Stream.Text;
@@ -12,22 +13,25 @@ public class Page
 {
     public PageBox MediaBox { get; }
 
-    public List<DocumentText> Texts => _texts.Value;
+    private List<DocumentText> Texts => _texts.Value;
     
-    private readonly List<StreamObject> _contents;
+    private readonly ReadOnlyDictionary<IndirectReference, StreamObject> _contents;
 
     private readonly Dictionary<string, Font> _fontDictionary;
 
     private readonly Lazy<List<DocumentText>> _texts;
-    public Page(PageBox mediaBox, List<StreamObject> contents, Dictionary<string, Font> fontDictionary)
+
+    private readonly EncryptionHandler? _encryptionHandler;
+    public Page(PageBox mediaBox, ReadOnlyDictionary<IndirectReference, StreamObject> contents, Dictionary<string, Font> fontDictionary, EncryptionHandler? encryptionHandler = null)
     {
         MediaBox = mediaBox;
         _contents = contents;
         _fontDictionary = fontDictionary;
+        _encryptionHandler = encryptionHandler;
         _texts = new Lazy<List<DocumentText>>(GetTexts);
     }
     
-    public IReadOnlyList<StreamObject> Contents => _contents;
+    public ReadOnlyDictionary<IndirectReference, StreamObject> Contents => _contents;
 
     public ReadOnlyDictionary<string, Font> FontDictionary => _fontDictionary.AsReadOnly();
 
@@ -35,9 +39,15 @@ public class Page
     {
         var texts = new List<DocumentText>();
 
-        foreach (var content in _contents)
+        foreach (var (key, content) in _contents)
         {
-            var streamReader = new MemoryInputBytes(content.Data);
+            var decryptedStream = content.Data;
+            if (_encryptionHandler != null)
+            {
+                decryptedStream = _encryptionHandler.Decrypt(decryptedStream, key);
+            }
+            var stream = CompressionHandler.Decompress(decryptedStream, content.Filter, content.DecoderParams);
+            var streamReader = new MemoryInputBytes(stream);
             var parser = new PdfParser(streamReader);
             while(!streamReader.IsAtEnd())
             {
@@ -49,27 +59,35 @@ public class Page
                 {
                     break;
                 }
+                
                 //Operands come first, which are ALWAYS DirectObjects, we can effectively parse direct objects until 
                 //a operation token is found
-                if(streamReader.IsAtEnd())
-                {
-                    break;
-                }
                  
                 var commands = new List<ITextCommand>();
      
                 while (streamReader.CurrentChar != 'E')
                 {
                     var tempList = new List<DirectObject>();
-     
-                    while (!streamReader.IsAtEnd() && streamReader.CurrentByte != 'T')
+                    
+                    //TODO: Handle BDC and EMC (Begin/End Marked Content)
+                    //TODO: Handle a lot of other graphical states... may need to rethink this whole function/process
+                    while (!streamReader.IsAtEnd() && 
+                           streamReader.CurrentChar != 'T' &&
+                           streamReader.CurrentChar != 'g' &&
+                           streamReader.CurrentChar != 'G' &&
+                           streamReader.CurrentChar != 'B' &&
+                           streamReader.CurrentChar != 'E')
                     {
                         
                         tempList.Add(parser.ParseDirectObject(streamReader));
                         streamReader.SkipWhitespace();
                     }
-     
-                    streamReader.MoveNext();
+
+                    if (streamReader.CurrentChar == 'T')
+                    {
+                        streamReader.MoveNext();   
+                    }
+                    
                     switch (streamReader.CurrentChar)
                     {
                         case 'M':
@@ -91,6 +109,16 @@ public class Page
                         case 'd':
                             //Text Direction
                             commands.Add(new SetTextDirection(tempList));
+                            break;
+                        case 'G':
+                        case 'g':
+                            //set Gray Level
+                            commands.Add(new SetGrayLevel((NumericObject)tempList[0], streamReader.CurrentChar == 'G'));
+                            break;
+                        case 'E':
+                        case 'B':
+                            //no-op
+                            streamReader.Move(3);
                             break;
                         default:
                             throw new Exception($"Encountered an unexpected token in stream: {streamReader.CurrentChar}");

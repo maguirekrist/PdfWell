@@ -27,6 +27,7 @@ public class UnexpectedTokenException : Exception
         var builder = new StringBuilder();
 
         builder.AppendLine($"Unexpected token: {failureToken} while parsing.");
+        builder.AppendLine($"Line: {Encoding.ASCII.GetString(line)}");
         builder.AppendLine(Encoding.ASCII.GetString(inputBytes.Slice((int)begin, (int)(failureOffset - begin)).Span));
         builder.AppendLine(
             "^".PadLeft((int)(failureOffset - (begin + 1)))

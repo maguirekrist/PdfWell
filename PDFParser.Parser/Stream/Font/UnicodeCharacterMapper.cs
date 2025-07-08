@@ -1,26 +1,46 @@
 using System.Text;
 using PDFParser.Parser.IO;
 using PDFParser.Parser.Objects;
+using PDFParser.Parser.String;
+using PDFParser.Parser.Utils;
 
 namespace PDFParser.Parser.Stream.Font;
 
 public class UnicodeCharacterMapper : IEncoding
 {
-    private Dictionary<ushort, char> _lookupTable = new();
-    private SortedList<ushort, (ushort End, ushort UnicodeStart)> _ranges = new();
+    private Dictionary<uint, UnicodeChar> _lookupTable = new();
+    private SortedList<uint, (uint End, uint UnicodeStart)> _ranges = new();
     
     public UnicodeCharacterMapper(MemoryInputBytes stream)
     {
         Init(stream);
     }
-
+    
+    
     public string GetString(ReadOnlySpan<byte> bytes)
     {
-        var builder = new StringBuilder(bytes.Length / 2);
-        for (var i = 0; i < bytes.Length; i += 2)
+        var builder = new StringBuilder();
+        var cursor = 0;
+        while (cursor < bytes.Length)
         {
-            ushort pack = (ushort)((bytes[i] << 8) | bytes[i + 1]);
-            builder.Append(Lookup(pack));
+            for (var len = 1; len <= 4 && cursor + len <= bytes.Length; len++)
+            {
+                var pack = BinaryHelper.PackBytesBigEndian(bytes.Slice(cursor, len));
+                var found = Lookup(pack);
+
+                if (found.HasValue)
+                {
+                    builder.Append(found.Value.Value);
+                    break;
+                }
+                else if (len == 4)
+                {
+                    builder.Append((char)bytes[cursor]);
+                    break;
+                }
+            }
+
+            cursor++;
         }
 
         return builder.ToString();
@@ -28,7 +48,6 @@ public class UnicodeCharacterMapper : IEncoding
 
     private void Init(MemoryInputBytes cmapStream)
     {
-        var parser = new PdfParser(cmapStream);
         //1. get the codespace range
         cmapStream.ReadUntil("begincodespacerange"u8);
         cmapStream.SkipWhitespace();
@@ -36,59 +55,66 @@ public class UnicodeCharacterMapper : IEncoding
         cmapStream.SkipWhitespace();
         var end = PdfParser.ParseStringObject(cmapStream);
         var codePointSize = begin.Value.Length;
-
+        
+        cmapStream.Seek(0);
+        
         cmapStream.ReadUntil("beginbfchar"u8);
-        while (!cmapStream.IsAtEnd() && cmapStream.CurrentChar != 'e')
+        cmapStream.GotoBeginLine();
+        var charCounts = int.Parse(Encoding.ASCII.GetString(cmapStream.ReadNumeric()));
+        cmapStream.NextLine();
+        if (charCounts > 0)
         {
-            cmapStream.SkipWhitespace();
-            var from = PdfParser.ParseStringObject(cmapStream);
-            cmapStream.SkipWhitespace();
-            var to = PdfParser.ParseStringObject(cmapStream);
-            cmapStream.SkipWhitespace();
-            AddCharacterCode(from, to);
+            while (!cmapStream.IsAtEnd() && cmapStream.CurrentChar != 'e')
+            {
+                cmapStream.SkipWhitespace();
+                var from = PdfParser.ParseStringObject(cmapStream);
+                cmapStream.SkipWhitespace();
+                var to = PdfParser.ParseStringObject(cmapStream);
+                cmapStream.SkipWhitespace();
+                AddCharacterCode(from, to);
+            }   
         }
 
+        cmapStream.Seek(0);
+
         cmapStream.ReadUntil("beginbfrange"u8);
-        while (!cmapStream.IsAtEnd() && cmapStream.CurrentChar != 'e')
+        cmapStream.GotoBeginLine();
+        var rangeCounts = int.Parse(Encoding.ASCII.GetString(cmapStream.ReadNumeric()));
+        cmapStream.NextLine();
+        if (rangeCounts > 0)
         {
-            cmapStream.SkipWhitespace();
-            var from = PdfParser.ParseStringObject(cmapStream);
-            cmapStream.SkipWhitespace();
-            var to = PdfParser.ParseStringObject(cmapStream);
-            cmapStream.SkipWhitespace();
-            var unicodeBegin = PdfParser.ParseStringObject(cmapStream);
-            cmapStream.SkipWhitespace();
-            AddCharacterRange(from, to, unicodeBegin);
+            while (!cmapStream.IsAtEnd() && cmapStream.CurrentChar != 'e')
+            {
+                cmapStream.SkipWhitespace();
+                var from = PdfParser.ParseStringObject(cmapStream);
+                cmapStream.SkipWhitespace();
+                var to = PdfParser.ParseStringObject(cmapStream);
+                cmapStream.SkipWhitespace();
+                var unicodeBegin = PdfParser.ParseStringObject(cmapStream);
+                cmapStream.SkipWhitespace();
+                AddCharacterRange(from, to, unicodeBegin);
+            }   
         }
     }
 
     private void AddCharacterCode(StringObject key, StringObject value)
     {
-        if (key.Value.Length != 2 || value.Value.Length != 2)
-        {
-            throw new ArgumentException();
-        }
-        
-        var pack = (ushort)((key.Value[0] << 8) | key.Value[1]);
-        var valPack = (char)((value.Value[0] << 8) | value.Value[1]);
-        _lookupTable.Add(pack, valPack);
+        var pack = BinaryHelper.PackBytesBigEndian(key.Value); //pack big endian
+        _lookupTable.Add(pack, new UnicodeChar(value.Value));
     }
 
     private void AddCharacterRange(StringObject from, StringObject to, StringObject begin)
     {
-        if (from.Value.Length != 2 || to.Value.Length != 2 || begin.Value.Length != 2)
-        {
-            throw new ArgumentException();
-        }
-        
-        var fromVal = (ushort)((from.Value[0] << 8) | from.Value[1]);
-        var toVal = (ushort)((to.Value[0] << 8) | to.Value[1]);
-        var beginVal = (ushort)((begin.Value[0] << 8) | begin.Value[1]);
+        var fromValOld = from.Value.Length == 1 ? from.Value[0] : (ushort)((from.Value[0] << 8) | from.Value[1]);
+        var toValOld = to.Value.Length == 1 ? to.Value[0] : (ushort)((to.Value[0] << 8) | to.Value[1]);
+        var fromVal = BinaryHelper.PackBytesBigEndian(from.Value);
+        var toVal = BinaryHelper.PackBytesBigEndian(to.Value);
+        var beginVal = BinaryHelper.PackBytesBigEndian(begin.Value);
 
         _ranges.Add(fromVal, (toVal, beginVal));
     }
 
-    private char Lookup(ushort characterCode)
+    private UnicodeChar? Lookup(uint characterCode)
     {
         if (_lookupTable.TryGetValue(characterCode, out var result)) return result;
         
@@ -105,7 +131,7 @@ public class UnicodeCharacterMapper : IEncoding
                 if (_ranges[keys[mid]].End >= characterCode)
                 {
                     //Found
-                    return (char)(_ranges[keys[mid]].UnicodeStart + (characterCode - keys[mid]));
+                    return UnicodeChar.FromCodePoint(_ranges[keys[mid]].UnicodeStart + (characterCode - keys[mid]));
                 }
 
                 low = mid + 1;
@@ -116,7 +142,7 @@ public class UnicodeCharacterMapper : IEncoding
             }
         }
 
-        throw new KeyNotFoundException();
+        return null;
 
     }
 }

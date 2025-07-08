@@ -97,6 +97,21 @@ public class MemoryInputBytes
         return _currentOffset > _upperbound;
     }
 
+    public bool IsAtNewLine()
+    {
+        List<byte[]> newLines = [Encoding.ASCII.GetBytes("\n"), Encoding.ASCII.GetBytes("\r"), Encoding.ASCII.GetBytes("\r\n")];
+            
+        foreach (var delimiter in newLines)
+        {
+            if (_memory.Slice(_currentOffset, delimiter.Length).Span.SequenceEqual(delimiter))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     public void Seek(long position)
     {
         _currentOffset = (int)position;
@@ -205,6 +220,37 @@ public class MemoryInputBytes
         matchLength = 0;
         return -1;
     }
+
+    public long? RewindUntilFirstFound(List<byte[]> delimiters, int? maxBytesToRead, out int matchLength)
+    {
+        var readBytes = 0;
+        for (var i = _currentOffset; i > 0; i--)
+        {
+            if (maxBytesToRead != null && readBytes > maxBytesToRead)
+            {
+                break;
+            }
+            
+            foreach (var delimiter in delimiters)
+            {
+                if (delimiter.Length == 0 || i + delimiter.Length > Length)
+                {
+                    continue;
+                }
+
+                if (_memory.Slice(i, delimiter.Length).Span.SequenceEqual(delimiter))
+                {
+                    matchLength = delimiter.Length;
+                    return i;
+                }
+            }
+
+            readBytes++;
+        }
+
+        matchLength = 0;
+        return null;
+    }
     
     public long RewindUntil(ReadOnlySpan<byte> matchBytes)
     {
@@ -245,13 +291,54 @@ public class MemoryInputBytes
         
         return tempBuffer.SequenceEqual(matchBytes);
     }
-    
-    
+
+    public void GotoBeginLine()
+    {
+        while (IsAtNewLine())
+        {
+            _currentOffset -= 1;
+        }
+        
+        var begin = RewindUntilFirstFound(
+            [Encoding.ASCII.GetBytes("\n"), Encoding.ASCII.GetBytes("\r"), Encoding.ASCII.GetBytes("\r\n")], null,
+            out var matchLength);
+        if (begin == null)
+        {
+            throw new Exception("WTF!");
+        }
+
+        _currentOffset = (int)begin + matchLength;
+    }
+
+    //Gets the current line the current offset is on... unlike readLine, which reads to the end of line.
+    public ReadOnlySpan<byte> GetLine()
+    {
+        while (IsAtNewLine())
+        {
+            _currentOffset -= 1;
+        }
+        
+        var begin = RewindUntilFirstFound(
+            [Encoding.ASCII.GetBytes("\n"), Encoding.ASCII.GetBytes("\r"), Encoding.ASCII.GetBytes("\r\n")], null,
+            out var matchLength);
+        if (begin == null)
+        {
+            throw new Exception("WTF!");
+        }
+
+        begin += matchLength;
+            
+        var startEol = FindFirstPatternOffset([
+            Encoding.ASCII.GetBytes("\n"), Encoding.ASCII.GetBytes("\r"), Encoding.ASCII.GetBytes("\r\n")
+        ]) ?? _currentOffset;      
+        
+        return _memory.Span.Slice((int)begin, (int)(startEol - begin));
+    }
 
     public ReadOnlySpan<byte> ReadLine()
     {
         //Assume we are reading at a beginning of a new line
-        var begin = CurrentOffset;
+        var begin = _currentOffset;
         
         var startEol = FindFirstPatternOffset([
             Encoding.ASCII.GetBytes("\n"), Encoding.ASCII.GetBytes("\r"), Encoding.ASCII.GetBytes("\r\n")
@@ -266,9 +353,14 @@ public class MemoryInputBytes
             Encoding.ASCII.GetBytes("\n"), Encoding.ASCII.GetBytes("\r"), Encoding.ASCII.GetBytes("\r\n")
         ]) ?? _currentOffset;
 
-        if (CurrentChar == '\n')
+        if (IsAtNewLine())
         {
             MoveNext();
+            //Handles \r\n format
+            if (CurrentChar == '\n')
+            {
+                MoveNext();
+            }
         }
     }
 

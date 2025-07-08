@@ -58,6 +58,24 @@ public static class BinaryHelper
 
         return result;
     }
+
+    public static uint PackBytesBigEndian(ReadOnlySpan<byte> pBytes)
+    {
+        if (pBytes.Length is > 4 or 0)
+        {
+            throw new ArgumentException("Attempted Pack Bytes greater then length of 4 or none.");
+        }
+
+        uint result = default;
+
+        for (int i = 0; i < pBytes.Length; i++)
+        {
+            result <<= 8;
+            result |= pBytes[i];
+        }
+
+        return result;
+    }
     
     
     public static int ReadInt32BigEndian(ReadOnlySpan<byte> span)

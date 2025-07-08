@@ -1,9 +1,6 @@
 using System.Diagnostics;
-using ImpromptuInterface;
 using PDFParser.Parser.Document;
-using PDFParser.Parser.Document.Annotations;
-using PDFParser.Parser.Document.Forms;
-using PDFParser.Parser.Document.Structure;
+using PDFParser.Parser.Encryption;
 using PDFParser.Parser.Objects;
 using PDFParser.Parser.Utils;
 
@@ -11,14 +8,14 @@ namespace PDFParser.Parser.Factories;
 
 public static class PageFactory
 {
-    public static Page Create(DictionaryObject pageDictionary, ObjectTable objects)
+    public static Page Create(DictionaryObject pageDictionary, ObjectTable objects, EncryptionHandler? encryptionHandler = null)
     {
         var mediaBoxArr = pageDictionary.GetAs<ArrayObject<DirectObject>>("MediaBox");
         var arguments = mediaBoxArr.Objects.OfType<NumericObject>().Select(x => (int)x.Value).ToArray();
         var mediaBox = new PageBox(arguments);
 
         var contents = pageDictionary["Contents"] ?? throw new UnreachableException();
-        var streams = new List<StreamObject>();
+        var streams = new Dictionary<IndirectReference, StreamObject>();
 
         switch (contents)
         {
@@ -79,7 +76,7 @@ public static class PageFactory
         // }
         
         
-        return new Page(mediaBox, streams, fontDictionary);
+        return new Page(mediaBox, streams.AsReadOnly(), fontDictionary, encryptionHandler);
 
         void AddStreamByReference(ReferenceObject reference)
         {
@@ -88,7 +85,7 @@ public static class PageFactory
             switch (contentObj)
             {
                 case StreamObject contentStream:
-                    streams.Add(contentStream);
+                    streams.Add(reference.Reference, contentStream);
                     return;
                 case ArrayObject<DirectObject> contentArray:
                     foreach (var arrObj in contentArray.Objects)
