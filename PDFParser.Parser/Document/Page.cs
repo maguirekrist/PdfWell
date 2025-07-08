@@ -65,18 +65,14 @@ public class Page
                  
                 var commands = new List<ITextCommand>();
      
-                while (streamReader.CurrentChar != 'E')
+                while (!streamReader.IsAtEnd() && streamReader.CurrentChar != 'E')
                 {
                     var tempList = new List<DirectObject>();
-                    
+                    //var operandSet = new HashSet<char> { 'T', 'g', 'G', 'B', 'E', 'l', 'c', 'm', 'w', 'R', };
                     //TODO: Handle BDC and EMC (Begin/End Marked Content)
                     //TODO: Handle a lot of other graphical states... may need to rethink this whole function/process
                     while (!streamReader.IsAtEnd() && 
-                           streamReader.CurrentChar != 'T' &&
-                           streamReader.CurrentChar != 'g' &&
-                           streamReader.CurrentChar != 'G' &&
-                           streamReader.CurrentChar != 'B' &&
-                           streamReader.CurrentChar != 'E')
+                           !streamReader.CurrentByte.IsAlpha())
                     {
                         
                         tempList.Add(parser.ParseDirectObject(streamReader));
@@ -113,7 +109,7 @@ public class Page
                         case 'G':
                         case 'g':
                             //set Gray Level
-                            commands.Add(new SetGrayLevel((NumericObject)tempList[0], streamReader.CurrentChar == 'G'));
+                            //commands.Add(new SetGrayLevel((NumericObject)tempList[0], streamReader.CurrentChar == 'G'));
                             break;
                         case 'E':
                         case 'B':
@@ -121,7 +117,9 @@ public class Page
                             streamReader.Move(3);
                             break;
                         default:
-                            throw new Exception($"Encountered an unexpected token in stream: {streamReader.CurrentChar}");
+                            //throw new Exception($"Encountered an unexpected token in stream: {streamReader.CurrentChar}");
+                            //streamReader.MoveNext();
+                            break;
                     }
      
                     streamReader.MoveNext();

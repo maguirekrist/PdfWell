@@ -21,7 +21,7 @@ public class MemoryInputBytes
 
     public long CurrentOffset => _currentOffset;
 
-    public byte CurrentByte => _memory.Span[_currentOffset];
+    public byte CurrentByte => _currentOffset > _upperbound ? _memory.Span[_upperbound] : _memory.Span[_currentOffset];
 
     public char CurrentChar => (char)CurrentByte;
 
