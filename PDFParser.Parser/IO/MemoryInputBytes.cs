@@ -19,13 +19,13 @@ public class MemoryInputBytes
         _matchStrategy = matchStrategy;
     }
 
-    public long CurrentOffset => _currentOffset;
+    public int CurrentOffset => _currentOffset;
 
     public byte CurrentByte => _currentOffset > _upperbound ? _memory.Span[_upperbound] : _memory.Span[_currentOffset];
 
     public char CurrentChar => (char)CurrentByte;
 
-    public long Length => _memory.Span.Length;
+    public int Length => _memory.Span.Length;
 
     public byte[] Data => _memory.ToArray();
     
@@ -112,9 +112,9 @@ public class MemoryInputBytes
         return false;
     }
 
-    public void Seek(long position)
+    public void Seek(int position)
     {
-        _currentOffset = (int)position;
+        _currentOffset = position;
     }
 
     private int Read(Span<byte> buffer)
@@ -138,18 +138,17 @@ public class MemoryInputBytes
         return readLength;
     }
 
-    public long? FindFirstPatternOffset(ReadOnlySpan<byte> matchBytes, int? maxBytesToRead = null)
+    public int? FindFirstPatternOffset(ReadOnlySpan<byte> matchBytes, int? maxBytesToRead = null)
     {
         if (_matchStrategy is not null)
         {
             var begin = _currentOffset;
             var offset= _matchStrategy.FindFirstOffset(_memory.Slice(_currentOffset), matchBytes);
-            if (offset is not null)
-            {
-                _currentOffset = (int)offset + begin + matchBytes.Length;
-                return offset + begin;
-            }
-            return null;
+            
+            if (!offset.HasValue) return null;
+            
+            _currentOffset = offset.Value + begin + matchBytes.Length;
+            return offset + begin;
         }
         
         var bytesRead = 0;
@@ -183,7 +182,7 @@ public class MemoryInputBytes
         return null;
     }
 
-    public long? FindFirstPatternOffset(List<byte[]> matchBytes, int? maxBytesToRead = null)
+    public int? FindFirstPatternOffset(List<byte[]> matchBytes, int? maxBytesToRead = null)
     {
         var indx = IndexOfAny(matchBytes, maxBytesToRead, out var matchLength);
         if (indx == -1)
@@ -221,7 +220,7 @@ public class MemoryInputBytes
         return -1;
     }
 
-    public long? RewindUntilFirstFound(List<byte[]> delimiters, int? maxBytesToRead, out int matchLength)
+    public int? RewindUntilFirstFound(List<byte[]> delimiters, int? maxBytesToRead, out int matchLength)
     {
         var readBytes = 0;
         for (var i = _currentOffset; i > 0; i--)
@@ -252,7 +251,7 @@ public class MemoryInputBytes
         return null;
     }
     
-    public long RewindUntil(ReadOnlySpan<byte> matchBytes)
+    public int RewindUntil(ReadOnlySpan<byte> matchBytes)
     {
         while (_currentOffset != 0)
         {
@@ -378,12 +377,13 @@ public class MemoryInputBytes
         }
     }
 
-    public ReadOnlySpan<byte> ReadUntil(ReadOnlySpan<byte> option)
+    public int ReadUntil(ReadOnlySpan<byte> option)
     {
         var begin = CurrentOffset;
         var startEol = FindFirstPatternOffset(option) ?? throw new Exception($"End of File reached while attempting find sequence: {Encoding.ASCII.GetString(option)}");
-        
-        return _memory.Span.Slice((int)begin, (int)(startEol - begin));
+
+        return startEol;
+        //return _memory.Span.Slice(begin, (int)(startEol - begin));
     }
 
     public ReadOnlySpan<byte> ReadAlpha()
@@ -393,7 +393,7 @@ public class MemoryInputBytes
         {
             if (!CurrentByte.IsAlpha())
             {
-                return _memory.Span.Slice((int) begin, (int)(CurrentOffset - begin));
+                return _memory.Span.Slice( begin, CurrentOffset - begin);
             };
 
             MoveNext();
@@ -435,6 +435,14 @@ public class MemoryInputBytes
         }
 
         throw new Exception("Numeric run continued to the end of buffer.");
+    }
+
+    public char Advance()
+    {
+        var currChar = CurrentChar;
+        MoveNext();
+
+        return currChar;
     }
 
     public ReadOnlyMemory<byte> Slice(int offset, int length)

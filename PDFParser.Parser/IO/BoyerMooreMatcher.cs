@@ -4,7 +4,7 @@ namespace PDFParser.Parser.IO;
 
 public class BoyerMooreMatcher : IMatcher
 {
-    public long? FindFirstOffset(ReadOnlyMemory<byte> stream, ReadOnlySpan<byte> pattern)
+    public int? FindFirstOffset(ReadOnlyMemory<byte> stream, ReadOnlySpan<byte> pattern)
     {
         if (pattern.Length == 0) return null;
         if (stream.Length < pattern.Length) return null;

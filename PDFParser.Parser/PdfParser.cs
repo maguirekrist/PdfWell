@@ -1,8 +1,6 @@
-using System.Buffers.Binary;
 using System.Diagnostics;
 using System.Text;
 using PDFParser.Parser.ConceptObjects;
-using PDFParser.Parser.Crypt;
 using PDFParser.Parser.Document;
 using PDFParser.Parser.Encryption;
 using PDFParser.Parser.Exceptions;
@@ -192,7 +190,7 @@ public class PdfParser
         return new Trailer(dictionary);
     }
 
-    public long FindStartXrefOffset()
+    public int FindStartXrefOffset()
     {
         //A PDF can have multiple startxref (incremental update feature in the spec). 
         //At load time, ONLY the LAST startxref matters and thats the boy we should load. 
@@ -203,7 +201,7 @@ public class PdfParser
         var startXref = _memoryReader.FindFirstPatternOffset(startXrefMarker) ?? throw new Exception("StartXref was not found.");
         _memoryReader.NextLine();
         var nextLine = _memoryReader.ReadLine();
-        long.TryParse(nextLine, out var result);
+        int.TryParse(nextLine, out var result);
         return result;
     }
 
@@ -258,10 +256,10 @@ public class PdfParser
         }
     }
     
-    private Dictionary<IndirectReference, long> ParseXrefs(MemoryInputBytes inputBytes, long startXref)
+    private Dictionary<IndirectReference, int> ParseXrefs(MemoryInputBytes inputBytes, int startXref)
     {
         inputBytes.Seek(startXref);
-        var xrefTable = new Dictionary<IndirectReference, long>();
+        var xrefTable = new Dictionary<IndirectReference, int>();
 
         ReadOnlySpan<byte> xrefMarker = "xref"u8;
         if (!inputBytes.Match(xrefMarker))
@@ -288,7 +286,7 @@ public class PdfParser
         for (var i = 0; i < objectCount; i++)
         {
             line = inputBytes.ReadLine();
-            var objectOffset = long.Parse(line.Slice(0, 10));
+            var objectOffset = int.Parse(line.Slice(0, 10));
             if (objectOffset != 0)
             {
                 xrefTable.Add(new IndirectReference(i, 0), objectOffset);
@@ -329,9 +327,9 @@ public class PdfParser
         return new CrossReferenceStreamDictionary(xrefStreamDict);
     }
 
-    private Dictionary<IndirectReference, long> ResolveXrefTable(CrossReferenceStreamDictionary xrefStream)
+    private Dictionary<IndirectReference, int> ResolveXrefTable(CrossReferenceStreamDictionary xrefStream)
     {
-        var xrefTable = new Dictionary<IndirectReference, long>();
+        var xrefTable = new Dictionary<IndirectReference, int>();
         
         //Check for Previous XRef stream
         var prevXrefStream = xrefStream.PreviousXrefStream;
@@ -349,7 +347,7 @@ public class PdfParser
         return xrefTable;
     }
 
-    private DirectObject ParseObjectByOffset(MemoryInputBytes inputBytes, long offset, out IndirectReference objectKey)
+    private DirectObject ParseObjectByOffset(MemoryInputBytes inputBytes, int offset, out IndirectReference objectKey)
     {
         inputBytes.Seek(offset);
         var objectLine = inputBytes.ReadLine();
@@ -367,7 +365,7 @@ public class PdfParser
         }
         catch (Exception ex)
         {
-            var objectSpan = inputBytes.Slice((int)offset, (int)(inputBytes.CurrentOffset - offset)).Span;
+            var objectSpan = inputBytes.Slice(offset, (inputBytes.CurrentOffset - offset)).Span;
             throw new Exception($"Exception was thrown trying to parse object: {Encoding.ASCII.GetString(objectSpan)}", ex);
         }
     }
@@ -562,7 +560,7 @@ public class PdfParser
                 throw new UnreachableException();
         }
         
-        return new StringObject(inputBytes.Slice((int)begin, (int)(inputBytes.CurrentOffset - begin)), begin, inputBytes.CurrentOffset - begin);
+        return new StringObject(inputBytes.Slice(begin, inputBytes.CurrentOffset - begin), begin, inputBytes.CurrentOffset - begin);
     }
 
     private DirectObject ParseArrayObject(MemoryInputBytes inputBytes)

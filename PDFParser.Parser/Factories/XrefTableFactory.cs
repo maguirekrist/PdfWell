@@ -9,9 +9,9 @@ public static class XrefTableFactory
 {
 
 
-    public static Dictionary<IndirectReference, long> Build(CrossReferenceStreamDictionary xrefDictionary)
+    public static Dictionary<IndirectReference, int> Build(CrossReferenceStreamDictionary xrefDictionary)
     {
-        Dictionary<IndirectReference, long> xrefTable = new();
+        Dictionary<IndirectReference, int> xrefTable = new();
         Dictionary<IndirectReference, List<int>> compressedObjectMap = new();
         List<IndirectReference> freeObjects = new();
         
