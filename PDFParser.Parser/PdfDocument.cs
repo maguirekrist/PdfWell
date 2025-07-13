@@ -12,24 +12,21 @@ namespace PDFParser.Parser;
 public class PdfDocument
 {
     private readonly Lazy<List<Page>> _pages;
-    private readonly Lazy<DocumentCatalog> _catalog;
     
     private readonly ObjectTable _objectTable;
-    private readonly Trailer? _trailer;
     private readonly EncryptionHandler? _encryptionHandler;
     public ObjectTable ObjectTable => _objectTable;
     
-    public PdfDocument(ObjectTable objects, Trailer? trailer = null, EncryptionHandler? encryptionHandler = null)
+    public PdfDocument(ObjectTable objects, DocumentCatalog catalog, EncryptionHandler? encryptionHandler = null)
     {
         _objectTable = objects;
-        _trailer = trailer;
         _encryptionHandler = encryptionHandler;
+        DocumentCatalog = catalog;
         _pages = new Lazy<List<Page>>(LoadPages);
-        _catalog = new Lazy<DocumentCatalog>(GetDocumentCatalog);
     }
     
     public List<Page> Pages => _pages.Value;
-    public DocumentCatalog DocumentCatalog => _catalog.Value;
+    public DocumentCatalog DocumentCatalog { get; }
 
     public bool IsLinearized { get; init; } = false;
 
@@ -56,13 +53,6 @@ public class PdfDocument
         }
 
         return pages;
-    }
-
-    private DocumentCatalog GetDocumentCatalog()
-    {
-        var rootReference = _trailer!.Root;
-        var catalogDict = _objectTable.GetAs<DictionaryObject>(rootReference.Reference);
-        return new DocumentCatalog(catalogDict);
     }
 
     public AcroFormDictionary? GetAcroForm()

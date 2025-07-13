@@ -14,10 +14,10 @@ namespace PDFParser.Parser;
 public class PdfParser
 {
     private readonly MemoryInputBytes _memoryReader;
-    private CrossReferenceTable? _crossReferenceTable = null;
-    private Trailer? _trailer;
+    private CrossReferenceTable _crossReferenceTable;
     private readonly ObjectTable _objectTable = new();
     private IndirectReference? _encryptionRef;
+    private IndirectReference? _rootRef;
     private EncryptionDictionary? _encryption;
     private ArrayObject<DirectObject>? _fileIdArray;
     private EncryptionHandler? _encryptionHandler;
@@ -40,7 +40,7 @@ public class PdfParser
         //This is really only useful when you are building a PDF application for web or regular users, not necessary for PDF processors like this software (where servers with TONs of RAM are usually opening up the whole file in mem).
         //2. Trailer Parsing - Since the whole file is in memory anyway, for example in this software, we can just jump straight to the main trailer which tells us all we need to know to start/decrypt the PDF. 
         //This is how we'll do it.
-        
+        DocumentCatalog? documentCatalog = null;
         var isLinearized = IsLinearized();
 
         _memoryReader.Seek(0);
@@ -48,12 +48,27 @@ public class PdfParser
         var startXref = FindStartXrefOffset();
         _memoryReader.Seek(0);
         
-        var xrefTable = ParseXrefs(_memoryReader, startXref);
-        _trailer = ParseTrailer(_memoryReader);
+        _crossReferenceTable = ParseXrefs(_memoryReader, startXref);
+        if (!_rootRef.HasValue)
+        {
+            //Attempt to grab the root ref from the trailer.
+            var trailer = ParseTrailer(_memoryReader) ?? throw new Exception($"Unable to get find trailer in non-linearized PDF! IsLinearized: {isLinearized}");
+            _rootRef = trailer.Root.Reference;
+        }
+        
+        //Parse the RootCatalog object
+        if (_rootRef.HasValue)
+        {
+            var catalogDictionary = ParseObjectByReference(_rootRef.Value);
+            if (catalogDictionary is not DictionaryObject dictionary) throw new UnreachableException();
+            documentCatalog = new DocumentCatalog(dictionary);
+        }
+        
         if (_encryptionRef.HasValue)
         {
-            xrefTable.TryGetValue(_encryptionRef.Value, out var offsetVal);
-            var obj = ParseObjectByOffset(_memoryReader, offsetVal, out var _);
+            var obj = ParseObjectByReference(_encryptionRef.Value);   
+            // xrefTable.TryGetValue(_encryptionRef.Value, out var offsetVal);
+            // var obj = ParseObjectByOffset(_memoryReader, offsetVal, out var _);
             if (obj is DictionaryObject dict)
             {
                 var encryptionDict = new EncryptionDictionary(dict);
@@ -61,7 +76,7 @@ public class PdfParser
             }
         }
         
-        foreach (var (xRef, offset) in xrefTable)
+        foreach (var (xRef, offset) in _crossReferenceTable)
         {
             if (_objectTable.ContainsKey(xRef)) continue;
             
@@ -82,7 +97,7 @@ public class PdfParser
             }
         }
         
-        return new PdfDocument(_objectTable, _trailer, _encryptionHandler) { IsLinearized = isLinearized };
+        return new PdfDocument(_objectTable, documentCatalog!, _encryptionHandler) { IsLinearized = isLinearized };
     }
 
     private void ParseLinearized()
@@ -256,10 +271,10 @@ public class PdfParser
         }
     }
     
-    private Dictionary<IndirectReference, int> ParseXrefs(MemoryInputBytes inputBytes, int startXref)
+    private CrossReferenceTable ParseXrefs(MemoryInputBytes inputBytes, int startXref)
     {
         inputBytes.Seek(startXref);
-        var xrefTable = new Dictionary<IndirectReference, int>();
+        var xrefTable = new CrossReferenceTable();
 
         ReadOnlySpan<byte> xrefMarker = "xref"u8;
         if (!inputBytes.Match(xrefMarker))
@@ -273,6 +288,11 @@ public class PdfParser
             if (xrefStream.HasKey("ID"))
             {
                 _fileIdArray = xrefStream.TryGetAs<ArrayObject<DirectObject>>("ID");
+            }
+
+            if (xrefStream.HasKey("Root"))
+            {
+                _rootRef = xrefStream.GetAs<ReferenceObject>("Root").Reference;
             }
             
             return ResolveXrefTable(xrefStream);
@@ -327,9 +347,9 @@ public class PdfParser
         return new CrossReferenceStreamDictionary(xrefStreamDict);
     }
 
-    private Dictionary<IndirectReference, int> ResolveXrefTable(CrossReferenceStreamDictionary xrefStream)
+    private CrossReferenceTable ResolveXrefTable(CrossReferenceStreamDictionary xrefStream)
     {
-        var xrefTable = new Dictionary<IndirectReference, int>();
+        var xrefTable = new CrossReferenceTable();
         
         //Check for Previous XRef stream
         var prevXrefStream = xrefStream.PreviousXrefStream;
@@ -338,12 +358,12 @@ public class PdfParser
             _memoryReader.Seek((int)prevXrefStream.Value);
             var prevStream = ParseXrefStream(_memoryReader);
             var tempTable = XrefTableFactory.Build(prevStream);
-            xrefTable = xrefTable.Concat(tempTable).ToDictionary();
+            xrefTable.Extend(tempTable);
             prevXrefStream = prevStream.PreviousXrefStream;
         }
 
         var mainTable = XrefTableFactory.Build(xrefStream);
-        xrefTable = xrefTable.Concat(mainTable).ToDictionary();
+        xrefTable.Extend(mainTable);
         return xrefTable;
     }
 
@@ -375,7 +395,7 @@ public class PdfParser
         if (_objectTable.TryGetValue(objectReference, out var dirObject)) return dirObject;
         if (_crossReferenceTable == null) throw new Exception("Parser Bad State! Cross Reference Table is NULL!");
         
-        var offset = _crossReferenceTable.ObjectOffsets[objectReference];
+        var offset = _crossReferenceTable[objectReference];
         dirObject = ParseObjectByOffset(_memoryReader, offset, out _);
         return dirObject;
     }

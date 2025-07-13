@@ -2,21 +2,14 @@ using PDFParser.Parser.Objects;
 
 namespace PDFParser.Parser.Document;
 
-public class CrossReferenceTable : DirectObject
+public class CrossReferenceTable : Dictionary<IndirectReference, int>
 {
 
-    private readonly Dictionary<IndirectReference, int> _objectOffsets;
-
-    public IReadOnlyDictionary<IndirectReference, int> ObjectOffsets => _objectOffsets;
-    
-    public CrossReferenceTable(
-        IReadOnlyDictionary<IndirectReference, int> objectOffsets,
-        long offset,
-        long length
-    ) : base(offset, length)
+    public void Extend(CrossReferenceTable other)
     {
-        _objectOffsets = new Dictionary<IndirectReference, int>(objectOffsets);
+        foreach (var kvp in other)
+        {
+            this[kvp.Key] = kvp.Value;
+        }
     }
-    
-    
 }

@@ -1,4 +1,5 @@
 using PDFParser.Parser.ConceptObjects;
+using PDFParser.Parser.Document;
 using PDFParser.Parser.Encryption;
 using PDFParser.Parser.Objects;
 using PDFParser.Parser.Utils;
@@ -9,9 +10,9 @@ public static class XrefTableFactory
 {
 
 
-    public static Dictionary<IndirectReference, int> Build(CrossReferenceStreamDictionary xrefDictionary)
+    public static CrossReferenceTable Build(CrossReferenceStreamDictionary xrefDictionary)
     {
-        Dictionary<IndirectReference, int> xrefTable = new();
+        CrossReferenceTable xrefTable = new();
         Dictionary<IndirectReference, List<int>> compressedObjectMap = new();
         List<IndirectReference> freeObjects = new();
         

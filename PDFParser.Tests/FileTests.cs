@@ -81,6 +81,9 @@ public class Tests
         var document = parser.Parse();
         
         Assert.That(document.Pages.Count, Is.EqualTo(1));
+
+        var acroDictionary = document.GetAcroForm();
+        Assert.That(acroDictionary, Is.Not.Null);
     }
 
     [Test]
@@ -131,8 +134,8 @@ public class Tests
         // var catalog = document.DocumentCatalog;
         // Assert.NotNull(catalog);
         //
-        // var acroForm = document.GetAcroForm();
-        // Assert.NotNull(acroForm);
+        var acroForm = document.GetAcroForm();
+        Assert.NotNull(acroForm);
     }
     
 }

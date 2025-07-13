@@ -17,7 +17,7 @@ public class LexerTests
         var scanner = new PdfTokenizer(reader);
         var tokens = scanner.ScanTokens();
         
-        Assert.IsNotEmpty(tokens);
+        Assert.That(tokens, Is.Not.Empty);
     }
 
     [Test]
@@ -28,6 +28,6 @@ public class LexerTests
         var scanner = new PdfTokenizer(reader);
         var tokens = scanner.ScanTokens();
         
-        Assert.IsNotEmpty(tokens);
+        Assert.That(tokens, Is.Not.Empty);
     }
 }
