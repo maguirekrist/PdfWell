@@ -1,6 +1,8 @@
+using System.Collections;
+
 namespace PDFParser.Parser.Objects;
 
-public class ArrayObject<T> : DirectObject where T : DirectObject
+public class ArrayObject<T> : DirectObject, IEnumerable<T> where T : DirectObject
 {
     public IReadOnlyList<T> Objects { get; }
     
@@ -11,6 +13,8 @@ public class ArrayObject<T> : DirectObject where T : DirectObject
 
     public DirectObject this[int index] => Objects[index];
 
+    public int Length => Objects.Count;
+    
     public T GetAs<T>(int index) where T : DirectObject
     {
         if (index >= Objects.Count)
@@ -25,4 +29,7 @@ public class ArrayObject<T> : DirectObject where T : DirectObject
 
         throw new InvalidCastException($"The value at index '{index}' is not of type {typeof(T).Name}.");
     }
+
+    public IEnumerator<T> GetEnumerator() => Objects.GetEnumerator();
+    IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
 }

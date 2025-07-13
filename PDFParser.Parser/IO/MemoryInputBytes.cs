@@ -377,13 +377,10 @@ public class MemoryInputBytes
         }
     }
 
-    public int ReadUntil(ReadOnlySpan<byte> option)
+    public int? ReadUntil(ReadOnlySpan<byte> option)
     {
-        var begin = CurrentOffset;
-        var startEol = FindFirstPatternOffset(option) ?? throw new Exception($"End of File reached while attempting find sequence: {Encoding.ASCII.GetString(option)}");
-
+        var startEol = FindFirstPatternOffset(option);
         return startEol;
-        //return _memory.Span.Slice(begin, (int)(startEol - begin));
     }
 
     public ReadOnlySpan<byte> ReadAlpha()

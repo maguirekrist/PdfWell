@@ -51,11 +51,7 @@ public class Page
             var parser = new PdfParser(streamReader);
             while(!streamReader.IsAtEnd())
             {
-                try
-                {
-                    streamReader.ReadUntil(Operators.BeginText);
-                }
-                catch (Exception ex)
+                if (streamReader.ReadUntil(Operators.BeginText) == null)
                 {
                     break;
                 }

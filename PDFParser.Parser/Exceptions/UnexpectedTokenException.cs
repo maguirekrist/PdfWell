@@ -22,13 +22,13 @@ public class UnexpectedTokenException : Exception
         var failureToken = inputBytes.CurrentChar;
         //Essentially read the whole line...
         var begin = inputBytes.RewindUntil(stackalloc byte[] { 10 });
-        var line = inputBytes.ReadUntil(stackalloc byte[] { 10 });
+        var line = inputBytes.ReadUntil(stackalloc byte[] { 10 })!.Value;
 
         var builder = new StringBuilder();
 
         builder.AppendLine($"Unexpected token: {failureToken} while parsing.");
-        builder.AppendLine($"Line: {Encoding.ASCII.GetString(inputBytes.Slice(begin, (line - begin)).ToArray())}");
-        builder.AppendLine(Encoding.ASCII.GetString(inputBytes.Slice(begin, (failureOffset - begin)).Span));
+        builder.AppendLine($"Line: {Encoding.ASCII.GetString(inputBytes.Slice(begin, line - begin).ToArray())}");
+        builder.AppendLine(Encoding.ASCII.GetString(inputBytes.Slice(begin, failureOffset - begin).Span));
         builder.AppendLine(
             "^".PadLeft((failureOffset - (begin + 1)))
             );

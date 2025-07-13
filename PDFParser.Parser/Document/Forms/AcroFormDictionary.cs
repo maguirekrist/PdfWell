@@ -12,7 +12,6 @@ public enum SigFlags
 
 public class AcroFormDictionary
 {
-    private Lazy<List<AcroFormFieldDictionary>> _fields;
     private readonly DictionaryObject _dict;
     private readonly ObjectTable _objectTable;
     
@@ -20,9 +19,8 @@ public class AcroFormDictionary
     {
         _dict = formDictionary;
         _objectTable = objectTable;
-        _fields = new Lazy<List<AcroFormFieldDictionary>>(GetFields);
     }
-    private List<AcroFormFieldDictionary> GetFields()
+    public List<AcroFormFieldDictionary> GetFields()
     {
         var fieldList = new List<AcroFormFieldDictionary>();
 
@@ -32,13 +30,46 @@ public class AcroFormDictionary
                 throw new Exception("Expecting a reference and got something else.");
             
             var fieldObj = _objectTable.GetAs<DictionaryObject>(reference.Reference);
-            fieldList.Add(new AcroFormFieldDictionary(fieldObj));
+            
+            //Ok, so you have a Field Object... what now? 
+            //Fields are a complex polymorphic type almost in PDFs... 
+            //Fields can be terminal only if the Kids array is null or if every object in the Kids array is explicitly not a FieldObject itself.
+            //If the Field is terminal but only has 1 child widget... then that child Widget gets flattened, so the Field object will be both a
+            //widget and a terminal field object. 
+            
+            
+            var field = new AcroFormFieldDictionary(fieldObj);
+            ExploreTree(field);
+            fieldList.Add(field);
         }
 
-        return fieldList;
+        return fieldList.Flatten(n => n.Children).Where(x => x.IsTerminal).ToList();
     }
-    
-    public List<AcroFormFieldDictionary> Fields => _fields.Value;
+
+    private void ExploreTree(AcroFormFieldDictionary fieldObj)
+    {
+        if (fieldObj.IsTerminal || fieldObj.Kids == null) return;
+        
+        var kids = fieldObj.Kids;
+        var kidObjects = new List<AcroFormFieldDictionary>();
+        if (kids != null)
+        {
+            foreach (var kid in kids)
+            {
+                if (kid is ReferenceObject kidRef)
+                {
+                    var dict = _objectTable.GetAs<DictionaryObject>(kidRef.Reference);
+                    var childField = new AcroFormFieldDictionary(dict);
+                    ExploreTree(childField);
+                    kidObjects.Add(childField);
+                }
+            }
+            
+        }
+        
+        //If kidObjects is not null
+        fieldObj.Children.AddRange(kidObjects);
+    }
 
     public ArrayObject<DirectObject> FieldReferences => _dict.GetAs<ArrayObject<DirectObject>>("Fields");
 

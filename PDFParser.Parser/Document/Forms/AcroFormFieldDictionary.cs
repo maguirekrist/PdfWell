@@ -25,14 +25,25 @@ public enum FieldFlags
 //can be merged into a single dictionary. 
 //This means that this dictionary can potentially inherit all the values that belong to
 //a AnnotationDictionary. 
-public class AcroFormFieldDictionary : WidgetAnnotation
+public class AcroFormFieldDictionary
 {
     private readonly DictionaryObject _dict;
+    private readonly WidgetAnnotation? _widget;
+    private readonly List<AcroFormFieldDictionary> _children;
 
-    public AcroFormFieldDictionary(DictionaryObject dict) : base(dict)
+    public AcroFormFieldDictionary(DictionaryObject dict, List<AcroFormFieldDictionary>? children = null)
     {
         _dict = dict;
+        _children = children ?? new List<AcroFormFieldDictionary>();
+        
+        //Check if this dictionary is also a widget! 
+        if (_dict.HasKey("Subtype") && _dict.TryGetAs<NameObject>("Subtype") is { Name: "Widget" })
+        {
+            _widget = new WidgetAnnotation(dict);
+        }
     }
+
+    public List<AcroFormFieldDictionary> Children => _children;
 
     public Boolean IsTerminal => Type != null;
     

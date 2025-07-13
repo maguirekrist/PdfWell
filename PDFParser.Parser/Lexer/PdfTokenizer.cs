@@ -96,7 +96,7 @@ public class PdfTokenizer
                 var keyword = ScanKeyword(alpha);
                 if (keyword == "stream")
                 {
-                    var endStreamBegin = _reader.ReadUntil("endstream"u8);
+                    var endStreamBegin = _reader.ReadUntil("endstream"u8)!.Value;
                     _reader.Seek(endStreamBegin);
                     ScanKeyword();
                 }

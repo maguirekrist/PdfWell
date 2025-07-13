@@ -131,11 +131,11 @@ public class Tests
         {
             Console.WriteLine(text);
         }
-        // var catalog = document.DocumentCatalog;
-        // Assert.NotNull(catalog);
-        //
+
         var acroForm = document.GetAcroForm();
-        Assert.NotNull(acroForm);
+        Assert.That(acroForm, Is.Not.Null);
+        var fields = acroForm.GetFields();
+        Assert.That(fields, Is.Not.Empty);
     }
     
 }

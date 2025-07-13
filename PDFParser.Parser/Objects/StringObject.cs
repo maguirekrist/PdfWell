@@ -30,6 +30,8 @@ public class StringObject : DirectObject
     public ReadOnlyMemory<byte> Data => _data;
     public byte[] Value { get; }
 
+    public string Text => DecodePdfString();
+
     public StringObject(ReadOnlyMemory<byte> data, long offset, long length) : base(offset, length)
     {
         _data = data;
@@ -84,15 +86,6 @@ public class StringObject : DirectObject
         
     }
 
-    // public byte[] GetBytes()
-    // {
-    //     switch (TextEncoding)
-    //     {
-    //         default:
-    //             return IsoEncoding.StringAsBytes(Text);
-    //     }
-    // }
-
     private byte[] GetCharacterCodes()
     {
         var inner = _data.Span.Slice(1, _data.Length - 2);
@@ -104,13 +97,12 @@ public class StringObject : DirectObject
     private string DecodePdfString()
     {
         // UTF-16BE if BOM is present
-        var bytes = _data.ToArray();
-        if (bytes.Length >= 2 && bytes[0] == 0xFE && bytes[1] == 0xFF)
+        if (Value.Length >= 2 && Value[0] == 0xFE && Value[1] == 0xFF)
         {
-            return Encoding.BigEndianUnicode.GetString(bytes, 2, bytes.Length - 2);
+            return Encoding.BigEndianUnicode.GetString(Value, 2, Value.Length - 2);
         }
 
-        return Encoding.GetEncoding(28591).GetString(bytes);
+        return Encoding.GetEncoding(28591).GetString(Value);
     }
 
     private static byte[] HexToBytes(ReadOnlySpan<byte> data)
@@ -147,5 +139,10 @@ public class StringObject : DirectObject
             return hex - 'a' + 10;
 
         throw new ArgumentException($"Invalid HEX character: {hex}");
+    }
+
+    public override string ToString()
+    {
+        return $"{Text}";
     }
 }
