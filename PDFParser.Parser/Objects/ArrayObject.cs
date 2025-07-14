@@ -6,14 +6,14 @@ public class ArrayObject<T> : DirectObject, IEnumerable<T> where T : DirectObjec
 {
     public IReadOnlyList<T> Objects { get; }
     
-    public ArrayObject(List<T> objects, long offset, long length) : base(offset, length)
+    public ArrayObject(List<T> objects, long offset, int length) : base(offset, length)
     {
         Objects = objects;
     }
 
     public DirectObject this[int index] => Objects[index];
 
-    public int Length => Objects.Count;
+    public int Count => Objects.Count;
     
     public T GetAs<T>(int index) where T : DirectObject
     {

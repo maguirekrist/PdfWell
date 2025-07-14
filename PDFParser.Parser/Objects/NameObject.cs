@@ -9,7 +9,7 @@ public class NameObject : DirectObject
         Name = name;
     }
     
-    public NameObject(string name, long offset, long length) : base(offset, length)
+    public NameObject(string name, long offset, int length) : base(offset, length)
     {
         Name = name;
     }

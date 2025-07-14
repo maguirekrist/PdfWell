@@ -23,8 +23,6 @@ public class StringObject : DirectObject
 
     private readonly ReadOnlyMemory<byte> _data;
     
-    //ublic TextEncoding TextEncoding { get; }
-    
     public bool IsHex => _data.Span[0] == '<';
 
     public ReadOnlyMemory<byte> Data => _data;
@@ -32,7 +30,7 @@ public class StringObject : DirectObject
 
     public string Text => DecodePdfString();
 
-    public StringObject(ReadOnlyMemory<byte> data, long offset, long length) : base(offset, length)
+    public StringObject(ReadOnlyMemory<byte> data, long offset, int length) : base(offset, length)
     {
         _data = data;
         var codes = GetCharacterCodes();

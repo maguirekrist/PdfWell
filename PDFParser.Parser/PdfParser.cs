@@ -83,10 +83,9 @@ public class PdfParser
             try
             {
                 var obj = ParseObjectByOffset(_memoryReader, offset, out var key);
-                if (obj is ObjectStream objStream)
+                if (obj is StreamObject { Type: "ObjStm" } streamObj)
                 {
-                    //Parse Object Stream
-                    ParseObjectStream(xRef, objStream);
+                    ParseObjectStream(xRef, new ObjectStream(streamObj));
                 }
             
                 _objectTable.TryAdd(key, obj);
@@ -220,26 +219,26 @@ public class PdfParser
         return result;
     }
 
-    private void ParseObjectStreams()
-    {
-        var objStreams = _objectTable
-            .Where(kv => kv.Value is ObjectStream) // Filter condition
-            .ToDictionary(kv => kv.Key, kv => (ObjectStream)kv.Value);
-        foreach (var (reference, objStream) in objStreams)
-        {
-            ParseObjectStream(reference, objStream);
-        }
-    }
+    // private void ParseObjectStreams()
+    // {
+    //     var objStreams = _objectTable
+    //         .Where(kv => kv.Value is StreamObject streamObject && streamObject.Type!.Equals("ObjStm")) // Filter condition
+    //         .ToDictionary(kv => kv.Key, kv => new ObjectStream((kv.Value as StreamObject)!));
+    //     foreach (var (reference, objStream) in objStreams)
+    //     {
+    //         ParseObjectStream(reference, objStream);
+    //     }
+    // }
 
     private void ParseObjectStream(IndirectReference reference, ObjectStream objStream)
     {
-        var decryptedStream = objStream.Data;
+        var decryptedStream = objStream.Stream.Data;
         if (_encryptionHandler != null)
         {
-            decryptedStream = _encryptionHandler.Decrypt(objStream.Data, reference);
+            decryptedStream = _encryptionHandler.Decrypt(objStream.Stream.Data, reference);
         }
         //Decoding should be handled outside of the class....
-        var decodedStream = CompressionHandler.Decompress(decryptedStream, objStream.Filter, objStream.DecoderParams);
+        var decodedStream = CompressionHandler.Decompress(decryptedStream, objStream.Stream.Filter, objStream.Stream.DecoderParams);
         var streamReader = new MemoryInputBytes(decodedStream);
 
         var beginOffset = objStream.First;
@@ -280,19 +279,19 @@ public class PdfParser
         if (!inputBytes.Match(xrefMarker))
         {
             var xrefStream = ParseXrefStream(inputBytes);
-            if (xrefStream.HasKey("Encrypt"))
+            if (xrefStream.Stream.HasKey("Encrypt"))
             {
-                _encryptionRef = xrefStream.GetAs<ReferenceObject>("Encrypt").Reference;
+                _encryptionRef = xrefStream.Stream.GetAs<ReferenceObject>("Encrypt").Reference;
             }
 
-            if (xrefStream.HasKey("ID"))
+            if (xrefStream.Stream.HasKey("ID"))
             {
-                _fileIdArray = xrefStream.TryGetAs<ArrayObject<DirectObject>>("ID");
+                _fileIdArray = xrefStream.Stream.TryGetAs<ArrayObject<DirectObject>>("ID");
             }
 
-            if (xrefStream.HasKey("Root"))
+            if (xrefStream.Stream.HasKey("Root"))
             {
-                _rootRef = xrefStream.GetAs<ReferenceObject>("Root").Reference;
+                _rootRef = xrefStream.Stream.GetAs<ReferenceObject>("Root").Reference;
             }
             
             return ResolveXrefTable(xrefStream);
@@ -638,11 +637,7 @@ public class PdfParser
         var endStreamLine = inputBytes.ReadLine();
         Debug.Assert(endStreamLine.SequenceEqual("endstream"u8));
 
-        return streamDictionary.Type?.Name switch
-        {
-            "ObjStm" => new ObjectStream(streamBuffer, streamDictionary),
-            _ => new StreamObject(streamBuffer, streamDictionary)
-        };
+        return new StreamObject(streamBuffer, streamDictionary);
     }
     
     public DirectObject ParseDirectObject(MemoryInputBytes inputBytes)

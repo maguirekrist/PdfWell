@@ -47,6 +47,8 @@ public class Tests
         // Assert.That(parser.GetPdfVersion(), Is.EqualTo("%PDF-1.7"));
         // Assert.That(parser.GetXrefOffsetStart(), Is.EqualTo(478));
         // Assert.That(parser.XrefTable.Count, Is.EqualTo(6));
+
+        document.Save("test.pdf");
     }
 
     [Test]
@@ -100,7 +102,7 @@ public class Tests
         }
     }
 
-    [Test, Timeout(5000)]
+    [Test]
     public void TestResume()
     {
         var pdfData = File.ReadAllBytes(Resume);

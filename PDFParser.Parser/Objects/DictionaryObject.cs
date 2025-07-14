@@ -14,7 +14,7 @@ public class DictionaryObject : DirectObject
     
     // public StreamObject? Stream { get; set; }
     
-    public DictionaryObject(Dictionary<NameObject, DirectObject> dictionary, long offset, long length) : base(offset, length)
+    public DictionaryObject(Dictionary<NameObject, DirectObject> dictionary, long offset, int length) : base(offset, length)
     {
         _dictionary = dictionary;
     }

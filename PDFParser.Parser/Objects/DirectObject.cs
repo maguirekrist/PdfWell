@@ -4,9 +4,9 @@ public abstract class DirectObject
 {
     public long Offset { get; }
     
-    public long Length { get; }
+    public int Length { get; }
     
-    protected DirectObject(long offset, long length)
+    protected DirectObject(long offset, int length)
     {
         Offset = offset;
         Length = length;

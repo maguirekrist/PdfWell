@@ -12,7 +12,6 @@ namespace PDFParser.Parser;
 public class PdfDocument
 {
     private readonly Lazy<List<Page>> _pages;
-    
     private readonly ObjectTable _objectTable;
     private readonly EncryptionHandler? _encryptionHandler;
     public ObjectTable ObjectTable => _objectTable;
@@ -62,5 +61,11 @@ public class PdfDocument
 
         var acroDictionary = _objectTable.GetAs<DictionaryObject>(acroRef.Reference);
         return new AcroFormDictionary(acroDictionary, _objectTable);
+    }
+
+    public void Save(string path)
+    {
+        using var writer = new PdfWriter(_objectTable, path);
+        writer.Write();
     }
 }

@@ -4,7 +4,7 @@ public class NumericObject : DirectObject
 {
     public double Value { get; }
     
-    public NumericObject(double value, long offset, long length, bool? isFraction = false) : base(offset, length)
+    public NumericObject(double value, long offset, int length, bool? isFraction = false) : base(offset, length)
     {
         if (isFraction == true)
         {

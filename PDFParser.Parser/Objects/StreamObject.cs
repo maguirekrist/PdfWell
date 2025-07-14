@@ -46,6 +46,8 @@ public class StreamObject : DictionaryObject
 
     public DecoderParams? DecoderParams => GetDecoderParams();
 
+    public string? Type => TryGetAs<NameObject>("Type")?.Name;
+
     public StreamObject(ReadOnlyMemory<byte> buffer, DictionaryObject streamDictionary) : base(streamDictionary)
     {
         _data = buffer;

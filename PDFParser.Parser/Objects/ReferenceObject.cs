@@ -11,7 +11,7 @@ public class ReferenceObject : DirectObject
     public ReferenceObject(
         IndirectReference reference,
         long offset,
-        long length) : base(offset, length)
+        int length) : base(offset, length)
     {
         Reference = reference;
     }

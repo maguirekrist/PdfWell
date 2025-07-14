@@ -24,7 +24,7 @@ public static class XrefTableFactory
 
         var objectCounter = xrefDictionary.IndexArray != null ? (int)xrefDictionary.IndexArray.GetAs<NumericObject>(0).Value : 0;
 
-        var decodedStream = CompressionHandler.Decompress(xrefDictionary).Span;
+        var decodedStream = CompressionHandler.Decompress(xrefDictionary.Stream).Span;
         
         for (var i = 0; i < decodedStream.Length; i += rowLength)
         {
