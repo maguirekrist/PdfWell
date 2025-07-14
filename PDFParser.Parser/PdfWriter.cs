@@ -1,6 +1,5 @@
 using System.Buffers;
 using System.Text;
-using PDFParser.Parser.ConceptObjects;
 using PDFParser.Parser.Document;
 using PDFParser.Parser.Objects;
 
@@ -21,17 +20,28 @@ public class PdfWriter : IDisposable
 
     public void Write()
     {
+        var offsetList = new List<(long offset, bool isFree)> { (0, true) };
+
         _streamWriter.Write(WriteHeader());
 
         foreach (var (reference, obj) in _objectTable)
         {
+            offsetList.Add((_streamWriter.Position, false));    
             _streamWriter.Write(WriteObjectHeader(reference));
             _streamWriter.Write("\n"u8);
             _streamWriter.Write(WriteObject(obj));
             _streamWriter.Write("\nendobj\n\n"u8);
         }
+
+        var startXref = _streamWriter.Position;
+        _streamWriter.Write(WriteXref(offsetList));
         
-        _streamWriter.Write(WriteXref());
+        _streamWriter.Write(WriteTrailer(_objectTable));
+        
+        _streamWriter.Write("startxref\n"u8);
+        _streamWriter.Write(Encoding.ASCII.GetBytes($"{startXref}\n"));
+        
+        _streamWriter.Write("%%EOF"u8);
         _streamWriter.Flush();
     }
 
@@ -40,9 +50,55 @@ public class PdfWriter : IDisposable
         return "%PDF-1.7\n"u8.ToArray();
     }
 
-    private static Span<byte> WriteXref()
+    private static Span<byte> WriteTrailer(ObjectTable objectTable)
     {
-        return "xref"u8.ToArray();
+        var bufferWriter = new ArrayBufferWriter<byte>();
+
+        bufferWriter.Write("trailer\n"u8);
+        var dict = new Dictionary<NameObject, DirectObject>();
+        dict.Add(new NameObject("Size"), new NumericObject(objectTable.Count));
+        dict.Add(new NameObject("Root"), new ReferenceObject(objectTable.GetCatalogReference()));
+        var dictObj = new DictionaryObject(dict, 0, 0);
+
+        bufferWriter.Write(WriteDictionaryObject(dictObj));
+        bufferWriter.Write("\n"u8);
+        
+        return bufferWriter.WrittenSpan.ToArray();
+    }
+
+    private static Span<byte> WriteXref(List<(long offset, bool isFree)> offsets)
+    {
+        var bufferWriter = new ArrayBufferWriter<byte>();
+        var offsetLen = offsets.Count;
+        
+        bufferWriter.Write("xref\n"u8);
+        bufferWriter.Write(Encoding.ASCII.GetBytes($"0 {offsetLen}\n"));
+        Span<byte> offsetRun = stackalloc byte[10];
+        foreach (var (offset, isFree) in offsets)
+        {
+            var offsetAsAscii = Encoding.ASCII.GetBytes($"{offset}");
+
+            for (var i = 9; i >= 0; i--)
+            {
+                var indexIntoAscii = 9 - i;
+                if (indexIntoAscii < offsetAsAscii.Length)
+                {
+                    offsetRun[i] = offsetAsAscii[(offsetAsAscii.Length - 1) - indexIntoAscii];
+                }
+                else
+                {
+                    offsetRun[i] = (byte)'0';
+                }
+            }
+            
+            bufferWriter.Write(offsetRun);
+            bufferWriter.Write(" "u8);
+            bufferWriter.Write("00000 "u8);
+            bufferWriter.Write(isFree ? "f"u8 : "n"u8);
+            bufferWriter.Write("\n"u8);
+        }
+        
+        return bufferWriter.WrittenSpan.ToArray();
     }
 
     private static Span<byte> WriteObjectHeader(IndirectReference reference)

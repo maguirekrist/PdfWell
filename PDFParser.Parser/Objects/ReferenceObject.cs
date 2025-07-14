@@ -15,4 +15,9 @@ public class ReferenceObject : DirectObject
     {
         Reference = reference;
     }
+
+    public ReferenceObject(IndirectReference reference) : base(0, 0)
+    {
+        Reference = reference;
+    }
 }

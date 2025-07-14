@@ -3,6 +3,11 @@ namespace PDFParser.Parser.Objects;
 public class NumericObject : DirectObject
 {
     public double Value { get; }
+
+    public NumericObject(double value) : base(0, 0)
+    {
+        Value = value;
+    }
     
     public NumericObject(double value, long offset, int length, bool? isFraction = false) : base(offset, length)
     {
