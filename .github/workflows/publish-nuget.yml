@@ -1,0 +1,35 @@
+name: Publish NuGet Package
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+
+jobs:
+  build-and-publish:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v3
+      with:
+        dotnet-version: '8.0.x'
+
+    - name: Restore dependencies
+      run: dotnet restore ./PDFParser.Parser/PDFParser.Parser.csproj
+
+    - name: Build the project
+      run: dotnet build ./PDFParser.Parser/PDFParser.Parser.csproj --configuration Release
+
+    - name: Pack NuGet package
+      run: dotnet pack ./PDFParser.Parser/PDFParser.Parser.csproj --configuration Release --output ./artifacts
+
+    - name: Upload NuGet package to GitHub Releases
+      uses: actions/upload-artifact@v3
+      with:
+        name: PDFParser.Parser-NuGet
+        path: ./artifacts/*.nupkg
