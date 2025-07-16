@@ -18,7 +18,7 @@ public class PdfWriter : IDisposable
     private ReferenceObject? _encryptionRef;
     private ArrayObject<DirectObject>? _fileIdArray;
 
-    private int _originalObjectCount;
+    private readonly int _originalObjectCount;
     
     public PdfWriter(ObjectTable objectTable, string path)
     {
@@ -37,7 +37,7 @@ public class PdfWriter : IDisposable
         var linearizedKey = _objectTable.FirstKeyWhere(x => x is DictionaryObject dict && dict.HasKey("Linearized"));
         if (linearizedKey.HasValue)
         {
-            _objectTable.Remove(linearizedKey.Value);   
+            _objectTable.Remove(linearizedKey.Value);
         }
 
         var streamObjKeys = _objectTable.AllKeysWhere(x => x is DictionaryObject { Type.Name: "ObjStm" });
@@ -47,12 +47,12 @@ public class PdfWriter : IDisposable
         }
 
         var xrefStreams = _objectTable.AllKeysWhere(x => x is DictionaryObject { Type.Name: "XRef" });
-        
+
         //Get the 
         if (xrefStreams.Any())
         {
             var xrefStreamObj = new CrossReferenceStreamDictionary(_objectTable.GetAs<StreamObject>(xrefStreams[0]));
-            
+
             _encryptionRef = xrefStreamObj.EncryptRef;
             _fileIdArray = xrefStreamObj.IDs;
         }
@@ -61,20 +61,18 @@ public class PdfWriter : IDisposable
         {
             _objectTable.Remove(xrefStreamRef);
         }
-        
-        
+
+
         var orphans = new List<IndirectReference>();
-        
+
         //Just to test, see if there are any orphaned references
         foreach (var (key, obj) in _objectTable)
         {
             FindOrphanReferences(obj, ref orphans);
         }
 
-        if (orphans.Any())
-        {
-            throw new UnreachableException();
-        }
+        Debug.Assert(orphans.Any() != true);
+
     }
 
     private void FindOrphanReferences(DirectObject obj, ref List<IndirectReference> references)
