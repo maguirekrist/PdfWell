@@ -13,6 +13,11 @@ public class DictionaryObject : DirectObject
     public NameObject? Type => TryGetAs<NameObject>("Type");
     
     // public StreamObject? Stream { get; set; }
+
+    public DictionaryObject(Dictionary<NameObject, DirectObject> dictionary) : base(0, 0)
+    {
+        _dictionary = dictionary;
+    }
     
     public DictionaryObject(Dictionary<NameObject, DirectObject> dictionary, long offset, int length) : base(offset, length)
     {

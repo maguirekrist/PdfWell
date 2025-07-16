@@ -5,6 +5,11 @@ namespace PDFParser.Parser.Objects;
 public class ArrayObject<T> : DirectObject, IEnumerable<T> where T : DirectObject
 {
     public IReadOnlyList<T> Objects { get; }
+
+    public ArrayObject(List<T> objects) : base(0, 0)
+    {
+        Objects = objects;
+    }
     
     public ArrayObject(List<T> objects, long offset, int length) : base(offset, length)
     {

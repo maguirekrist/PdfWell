@@ -1,7 +1,10 @@
 using System.Buffers;
+using System.Diagnostics;
 using System.Text;
+using PDFParser.Parser.ConceptObjects;
 using PDFParser.Parser.Document;
 using PDFParser.Parser.Objects;
+using PDFParser.Parser.Utils;
 
 namespace PDFParser.Parser;
 
@@ -11,11 +14,101 @@ public class PdfWriter : IDisposable
     private readonly FileStream _file;
     private readonly BufferedStream _streamWriter;
 
+    //Needed to writing xref dict
+    private ReferenceObject? _encryptionRef;
+    private ArrayObject<DirectObject>? _fileIdArray;
+
+    private int _originalObjectCount;
+    
     public PdfWriter(ObjectTable objectTable, string path)
     {
         _objectTable = objectTable;
         _file = File.Create(path);
         _streamWriter = new BufferedStream(_file); //We should initialize this with capacity... or something. 
+        _originalObjectCount = objectTable.Count;
+        Patch();
+    }
+
+    private void Patch()
+    {
+        //Patching a PDF essentially means, removing any form of Linearization or ObjStm from the PDF. And ensuring that
+        //All referenceObjects in the whole ObjectTable, even in key/values in dictionaries, reference real objects and not a deleted one. 
+
+        var linearizedKey = _objectTable.FirstKeyWhere(x => x is DictionaryObject dict && dict.HasKey("Linearized"));
+        if (linearizedKey.HasValue)
+        {
+            _objectTable.Remove(linearizedKey.Value);   
+        }
+
+        var streamObjKeys = _objectTable.AllKeysWhere(x => x is DictionaryObject { Type.Name: "ObjStm" });
+        foreach (var objKey in streamObjKeys)
+        {
+            _objectTable.Remove(objKey);
+        }
+
+        var xrefStreams = _objectTable.AllKeysWhere(x => x is DictionaryObject { Type.Name: "XRef" });
+        
+        //Get the 
+        if (xrefStreams.Any())
+        {
+            var xrefStreamObj = new CrossReferenceStreamDictionary(_objectTable.GetAs<StreamObject>(xrefStreams[0]));
+            
+            _encryptionRef = xrefStreamObj.EncryptRef;
+            _fileIdArray = xrefStreamObj.IDs;
+        }
+
+        foreach (var xrefStreamRef in xrefStreams)
+        {
+            _objectTable.Remove(xrefStreamRef);
+        }
+        
+        
+        var orphans = new List<IndirectReference>();
+        
+        //Just to test, see if there are any orphaned references
+        foreach (var (key, obj) in _objectTable)
+        {
+            FindOrphanReferences(obj, ref orphans);
+        }
+
+        if (orphans.Any())
+        {
+            throw new UnreachableException();
+        }
+    }
+
+    private void FindOrphanReferences(DirectObject obj, ref List<IndirectReference> references)
+    {
+        switch (obj)
+        {
+            case ReferenceObject refObj:
+            {
+                if (!_objectTable.ContainsKey(refObj.Reference))
+                {
+                    references.Add(refObj.Reference);
+                }
+
+                break;
+            }
+            case DictionaryObject dictObj:
+            {
+                foreach (var (key, val) in dictObj.Dictionary)
+                {
+                    FindOrphanReferences(val, ref references);
+                }
+
+                break;
+            }
+            case ArrayObject<DirectObject> arrayObj:
+            {
+                foreach (var sub in arrayObj.Objects)
+                {
+                    FindOrphanReferences(sub, ref references);
+                }
+
+                break;
+            }
+        }
     }
 
     public void Write()
@@ -23,16 +116,28 @@ public class PdfWriter : IDisposable
         var offsetList = new List<(long offset, bool isFree)> { (0, true) };
 
         _streamWriter.Write(WriteHeader());
+        _streamWriter.Write(WriteBOM());
 
-        foreach (var (reference, obj) in _objectTable)
+        var (lastRef, lastObj) = _objectTable.LastOrDefault();
+        for (var i = 1; i <= lastRef.ObjectNumber; i++)
         {
-            offsetList.Add((_streamWriter.Position, false));    
-            _streamWriter.Write(WriteObjectHeader(reference));
-            _streamWriter.Write("\n"u8);
-            _streamWriter.Write(WriteObject(obj));
-            _streamWriter.Write("\nendobj\n\n"u8);
+            var indirectRef = new IndirectReference(i);
+            if (_objectTable.ContainsKey(indirectRef))
+            {
+                offsetList.Add((_streamWriter.Position, false));    
+                _streamWriter.Write(WriteObjectHeader(indirectRef));
+                _streamWriter.Write("\n"u8);
+                _streamWriter.Write(WriteObject(_objectTable[indirectRef]));
+                _streamWriter.Write("\nendobj\n\n"u8);
+            }
+            else
+            {
+                offsetList.Add((0, true));
+            }
         }
 
+        Debug.Assert((_originalObjectCount + 1) == offsetList.Count);
+        
         var startXref = _streamWriter.Position;
         _streamWriter.Write(WriteXref(offsetList));
         
@@ -41,7 +146,7 @@ public class PdfWriter : IDisposable
         _streamWriter.Write("startxref\n"u8);
         _streamWriter.Write(Encoding.ASCII.GetBytes($"{startXref}\n"));
         
-        _streamWriter.Write("%%EOF"u8);
+        _streamWriter.Write("%%EOF\n"u8);
         _streamWriter.Flush();
     }
 
@@ -50,7 +155,12 @@ public class PdfWriter : IDisposable
         return "%PDF-1.7\n"u8.ToArray();
     }
 
-    private static Span<byte> WriteTrailer(ObjectTable objectTable)
+    private static Span<byte> WriteBOM()
+    {
+        return new byte[] { (byte)'%', 0xE2, 0xE3, 0xCF, 0xD3, (byte)'\n' };
+    }
+
+    private Span<byte> WriteTrailer(ObjectTable objectTable)
     {
         var bufferWriter = new ArrayBufferWriter<byte>();
 
@@ -58,7 +168,26 @@ public class PdfWriter : IDisposable
         var dict = new Dictionary<NameObject, DirectObject>();
         dict.Add(new NameObject("Size"), new NumericObject(objectTable.Count));
         dict.Add(new NameObject("Root"), new ReferenceObject(objectTable.GetCatalogReference()));
-        var dictObj = new DictionaryObject(dict, 0, 0);
+        
+        //attempt to find 
+        if (_encryptionRef != null)
+        {
+            dict.Add(new NameObject("Encrypt"), _encryptionRef);
+            dict.Add(new NameObject("ID"), _fileIdArray!);
+        }
+        else
+        {
+            //generate ID
+            var id = Guid.NewGuid().ToByteArray();
+            var hex = BitConverter.ToString(id).Replace("-", "").ToLower();
+            var idArray = new ArrayObject<DirectObject>([
+                StringObject.FromString(hex, isHex: true),
+                StringObject.FromString(hex, isHex: true)
+            ]);
+            dict.Add(new NameObject("ID"), idArray);
+        }
+            
+        var dictObj = new DictionaryObject(dict);
 
         bufferWriter.Write(WriteDictionaryObject(dictObj));
         bufferWriter.Write("\n"u8);
@@ -157,7 +286,7 @@ public class PdfWriter : IDisposable
     {
         var buffer = new ArrayBufferWriter<byte>();
 
-        buffer.Write("<<"u8);
+        buffer.Write("<< "u8);
 
         foreach (var kvp in dictionaryObject.Dictionary)
         {
@@ -167,7 +296,7 @@ public class PdfWriter : IDisposable
             buffer.Write(" "u8);
         }
         
-        buffer.Write(">>"u8);
+        buffer.Write(" >>"u8);
         return buffer.WrittenSpan.ToArray();
     }
 
@@ -197,7 +326,7 @@ public class PdfWriter : IDisposable
         buffer.Write("\n"u8);
         buffer.Write("stream\n"u8);
         buffer.Write(streamObject.Data);
-        buffer.Write("endstream"u8);
+        buffer.Write("\nendstream"u8);
         
         return buffer.WrittenSpan.ToArray();
     }

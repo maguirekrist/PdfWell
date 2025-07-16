@@ -11,12 +11,12 @@ public class ObjectTable : Dictionary<IndirectReference, DirectObject>
         return obj;
     }
 
-    public IndirectReference GetCatalogReference()
+    public IndirectReference? FirstKeyWhere(Predicate<DirectObject> predicate)
     {
-        IndirectReference first = new IndirectReference();
-        foreach (var x in this.Keys)
+        IndirectReference? first = null;
+        foreach (var x in Keys)
         {
-            if (this[x] is DictionaryObject && (this[x] as DictionaryObject)?.Type?.Name == "Catalog")
+            if (predicate(this[x]))
             {
                 first = x;
                 break;
@@ -24,5 +24,25 @@ public class ObjectTable : Dictionary<IndirectReference, DirectObject>
         }
 
         return first;
+    }
+
+    public IReadOnlyList<IndirectReference> AllKeysWhere(Predicate<DirectObject> predicate)
+    {
+        List<IndirectReference> keys = new();
+
+        foreach (var x in Keys)
+        {
+            if (predicate(this[x]))
+            {
+                keys.Add(x);
+            }
+        }
+        
+        return keys.AsReadOnly();
+    }
+    
+    public IndirectReference GetCatalogReference()
+    {
+        return FirstKeyWhere(x => x is DictionaryObject { Type.Name: "Catalog" }) ?? throw new KeyNotFoundException();
     }
 }

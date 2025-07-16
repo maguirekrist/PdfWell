@@ -29,7 +29,14 @@ public class StringObject : DirectObject
     public byte[] Value { get; }
 
     public string Text => DecodePdfString();
-
+    
+    public static StringObject FromString(string value, bool isHex = false)
+    {
+        var mem = isHex ? Encoding.ASCII.GetBytes($"<{value}>").AsMemory()
+            : Encoding.ASCII.GetBytes($"({value})").AsMemory();
+        return new StringObject(mem, 0, 0);
+    }
+    
     public StringObject(ReadOnlyMemory<byte> data, long offset, int length) : base(offset, length)
     {
         _data = data;

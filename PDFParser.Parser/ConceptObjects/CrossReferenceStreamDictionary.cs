@@ -32,5 +32,12 @@ public class CrossReferenceStreamDictionary
     //The first integer shall be the first object number in the subsection.
     //The second integer shall be the number of entries in the subsection.
     public ArrayObject<DirectObject>? IndexArray => Stream.TryGetAs<ArrayObject<DirectObject>>("Index");
+
+    public ReferenceObject? EncryptRef => Stream.TryGetAs<ReferenceObject>("Encrypt");
+
+    public ArrayObject<DirectObject>? IDs => Stream.TryGetAs<ArrayObject<DirectObject>>("ID");
+
+    public ReferenceObject? RootRef => Stream.TryGetAs<ReferenceObject>("Root");
+    
     public NumericObject Size => Stream.GetAs<NumericObject>("Size");
 }

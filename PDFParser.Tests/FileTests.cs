@@ -62,7 +62,8 @@ public class Tests
         Assert.That(document.Pages.Count, Is.EqualTo(2));
         Assert.That(document.Pages[0].GetTexts()[0].Value, Is.EqualTo("this is a test."));
         Assert.That(document.Pages[1].GetTexts()[0].Value, Is.EqualTo("I'm on the second page"));
-        
+
+        document.Save("test_two.pdf");
     }
 
     [Test]
@@ -73,6 +74,8 @@ public class Tests
         var document = parser.Parse();
         
         Assert.That(document.Pages.Count, Is.EqualTo(1));
+
+        document.Save("test_three.pdf");
     }
 
     [Test]
@@ -86,6 +89,8 @@ public class Tests
 
         var acroDictionary = document.GetAcroForm();
         Assert.That(acroDictionary, Is.Not.Null);
+
+        document.Save("test_gov.pdf");
     }
 
     [Test]
@@ -100,6 +105,8 @@ public class Tests
         {
             Console.WriteLine(text);
         }
+
+        document.Save("test_bank.pdf");
     }
 
     [Test]
@@ -117,6 +124,8 @@ public class Tests
         }
         Assert.NotNull(texts);
         Assert.True(texts.Count > 0);
+
+        document.Save("test_resume.pdf");
     }
 
     [Test]
@@ -138,6 +147,8 @@ public class Tests
         Assert.That(acroForm, Is.Not.Null);
         var fields = acroForm.GetFields();
         Assert.That(fields, Is.Not.Empty);
+
+        document.Save("test_gov2.pdf");
     }
     
 }

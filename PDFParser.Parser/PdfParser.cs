@@ -279,20 +279,10 @@ public class PdfParser
         if (!inputBytes.Match(xrefMarker))
         {
             var xrefStream = ParseXrefStream(inputBytes);
-            if (xrefStream.Stream.HasKey("Encrypt"))
-            {
-                _encryptionRef = xrefStream.Stream.GetAs<ReferenceObject>("Encrypt").Reference;
-            }
-
-            if (xrefStream.Stream.HasKey("ID"))
-            {
-                _fileIdArray = xrefStream.Stream.TryGetAs<ArrayObject<DirectObject>>("ID");
-            }
-
-            if (xrefStream.Stream.HasKey("Root"))
-            {
-                _rootRef = xrefStream.Stream.GetAs<ReferenceObject>("Root").Reference;
-            }
+            
+            _encryptionRef = xrefStream.EncryptRef?.Reference;
+            _fileIdArray = xrefStream.IDs;
+            _rootRef = xrefStream.RootRef?.Reference;
             
             return ResolveXrefTable(xrefStream);
         }
