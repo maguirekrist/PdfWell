@@ -14,11 +14,10 @@ namespace PDFParser.Parser;
 public class PdfParser
 {
     private readonly MemoryInputBytes _memoryReader;
-    private CrossReferenceTable _crossReferenceTable;
+    private CrossReferenceTable? _crossReferenceTable;
     private readonly ObjectTable _objectTable = new();
     private IndirectReference? _encryptionRef;
     private IndirectReference? _rootRef;
-    private EncryptionDictionary? _encryption;
     private ArrayObject<DirectObject>? _fileIdArray;
     private EncryptionHandler? _encryptionHandler;
     
@@ -83,7 +82,7 @@ public class PdfParser
             try
             {
                 var obj = ParseObjectByOffset(_memoryReader, offset, out var key);
-                if (obj is StreamObject { Type: "ObjStm" } streamObj)
+                if (obj is StreamObject { Type.Name: "ObjStm" } streamObj)
                 {
                     ParseObjectStream(xRef, new ObjectStream(streamObj));
                 }

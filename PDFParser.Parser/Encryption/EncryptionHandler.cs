@@ -149,7 +149,7 @@ public class EncryptionHandler
 
                 var result = new byte[length];
                 
-                Array.Copy(input, result, 16);
+                Array.Copy(input!, result, 16);
 
                 return result;
             }
@@ -159,28 +159,29 @@ public class EncryptionHandler
 
                 var result = new byte[length];
 
-                Array.Copy(md5.Hash, result, length);
+                Array.Copy(md5!.Hash!, result, length);
 
                 return result;
             }
         }
-        var permissionBytes = BitConverter.GetBytes((int)_encryptionDictionary.PermissionFlags.Value);
 
-        var metadataFlag = BitConverter.GetBytes(0xFFFFFFFF);
+        // var permissionBytes = BitConverter.GetBytes((int)_encryptionDictionary.PermissionFlags.Value);
 
-        var binaryBuilder = new BinaryBuilder();
+        // var metadataFlag = BitConverter.GetBytes(0xFFFFFFFF);
 
-        binaryBuilder.Add(passwordFull);
-        binaryBuilder.Add(ownerEntry);
-        binaryBuilder.Add(permissionBytes);
-        binaryBuilder.Add(_fileId);
+        // var binaryBuilder = new BinaryBuilder();
 
-        if (_encryptionDictionary.EncryptMetadata is { Value: false })
-        {
-            binaryBuilder.Add(metadataFlag);
-        }
+        // binaryBuilder.Add(passwordFull);
+        // binaryBuilder.Add(ownerEntry);
+        // binaryBuilder.Add(permissionBytes);
+        // binaryBuilder.Add(_fileId);
 
-        var keyData = binaryBuilder.Build();
+        // if (_encryptionDictionary.EncryptMetadata is { Value: false })
+        // {
+        //     binaryBuilder.Add(metadataFlag);
+        // }
+
+        // var keyData = binaryBuilder.Build();
 
         //using var md5 = MD5.Create();
         //var hash = md5.ComputeHash(keyData);

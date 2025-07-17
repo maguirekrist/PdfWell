@@ -20,14 +20,14 @@ public class ArrayObject<T> : DirectObject, IEnumerable<T> where T : DirectObjec
 
     public int Count => Objects.Count;
     
-    public T GetAs<T>(int index) where T : DirectObject
+    public TCast GetAs<TCast>(int index) where TCast : DirectObject
     {
         if (index >= Objects.Count)
         {
             throw new IndexOutOfRangeException();
         }
 
-        if (Objects[index] is T result)
+        if (Objects[index] is TCast result)
         {
             return result;
         }

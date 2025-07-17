@@ -103,7 +103,6 @@ public class PdfTokenizer
                 break;
             default:
                 throw new UnreachableException();
-                break;
         }
     }
 
@@ -174,7 +173,7 @@ public class PdfTokenizer
     private void ScanNumeric(char current)
     {
         var sign = 1;
-        var isFraction = false;
+        //var isFraction = false;
         switch (current)
         {
             case '-':
@@ -186,7 +185,7 @@ public class PdfTokenizer
                 _reader.MoveNext();
                 break;
             case '.':
-                isFraction = true;
+                //isFraction = true;
                 _reader.MoveNext();
                 break;
         }
