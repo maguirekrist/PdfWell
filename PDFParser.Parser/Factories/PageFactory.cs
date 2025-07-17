@@ -8,7 +8,7 @@ namespace PDFParser.Parser.Factories;
 
 public static class PageFactory
 {
-    public static Page Create(DictionaryObject pageDictionary, ObjectTable objects, EncryptionHandler? encryptionHandler = null)
+    public static Page Create(DictionaryObject pageDictionary, ObjectTable objects, int pageNumber, EncryptionHandler? encryptionHandler = null)
     {
         var mediaBoxArr = pageDictionary.GetAs<ArrayObject<DirectObject>>("MediaBox");
         var arguments = mediaBoxArr.Objects.OfType<NumericObject>().Select(x => (int)x.Value).ToArray();
@@ -76,7 +76,7 @@ public static class PageFactory
         // }
         
         
-        return new Page(mediaBox, streams.AsReadOnly(), fontDictionary, encryptionHandler);
+        return new Page(mediaBox, streams.AsReadOnly(), fontDictionary, pageNumber, encryptionHandler);
 
         void AddStreamByReference(ReferenceObject reference)
         {

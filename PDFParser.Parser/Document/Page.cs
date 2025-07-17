@@ -12,7 +12,8 @@ namespace PDFParser.Parser.Document;
 public class Page
 {
     public PageBox MediaBox { get; }
-
+    public int PageNumber { get; }
+    
     private List<DocumentText> Texts => _texts.Value;
     
     private readonly ReadOnlyDictionary<IndirectReference, StreamObject> _contents;
@@ -22,8 +23,10 @@ public class Page
     private readonly Lazy<List<DocumentText>> _texts;
 
     private readonly EncryptionHandler? _encryptionHandler;
-    public Page(PageBox mediaBox, ReadOnlyDictionary<IndirectReference, StreamObject> contents, Dictionary<string, Font> fontDictionary, EncryptionHandler? encryptionHandler = null)
+    
+    public Page(PageBox mediaBox, ReadOnlyDictionary<IndirectReference, StreamObject> contents, Dictionary<string, Font> fontDictionary, int pageNumber, EncryptionHandler? encryptionHandler = null)
     {
+        PageNumber = pageNumber;
         MediaBox = mediaBox;
         _contents = contents;
         _fontDictionary = fontDictionary;

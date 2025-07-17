@@ -1,5 +1,7 @@
 using PDFParser.Parser;
+using PDFParser.Parser.Graphics;
 using PDFParser.Parser.IO;
+using PDFParser.Parser.Objects;
 
 namespace PDFParser.Tests;
 
@@ -101,10 +103,6 @@ public class Tests
         
         Assert.That(document.Pages.Count, Is.EqualTo(1));
         var texts = document.Pages[0].GetTexts();
-        // foreach (var text in texts)
-        // {
-        //     Console.WriteLine(text);
-        // }
         Assert.NotNull(texts);
         Assert.True(texts.Count > 0);
 
@@ -121,16 +119,32 @@ public class Tests
         Assert.That(document.Pages.Count, Is.EqualTo(1));
         var texts = document.Pages[0].GetTexts();
 
-        // foreach (var text in texts)
-        // {
-        //     Console.WriteLine(text);
-        // }
-
+        Assert.That(texts, Is.Not.Empty);
+        
         var acroForm = document.GetAcroForm();
         Assert.That(acroForm, Is.Not.Null);
         var fields = acroForm.GetFields();
         Assert.That(fields, Is.Not.Empty);
 
+
+        List<Rectangle> rects = new();
+        foreach (var field in fields)
+        {
+            var fieldWidget = field.Widget;
+            if (fieldWidget != null)
+            {
+                var rectArray = fieldWidget.Rect;
+                rects.Add(Rectangle.FromPdfArray(rectArray));
+                
+                var page = fieldWidget.Page as ReferenceObject;
+                var pageObj = document.GetPage(page!.Reference);
+                
+                Assert.That(pageObj, Is.Not.Null);
+            }
+        }
+        
+        Assert.That(rects, Is.Not.Empty);
+        
         document.Save("test_gov2.pdf");
     }
     

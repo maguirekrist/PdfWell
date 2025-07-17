@@ -33,7 +33,7 @@ public class AnnotationDictionary
     public StringObject? Contents => _dict.TryGetAs<StringObject>("Contents");
     
     //Optional - an indirect reference to the page object with which this annotation is associated.
-    public DictionaryObject? Page => _dict.TryGetAs<DictionaryObject>("P");
+    public DirectObject? Page => _dict.TryGetAs<DirectObject>("P");
 
     public StringObject? AnnotationName => _dict.TryGetAs<StringObject>("NM");
     public DirectObject? LastModified => _dict.TryGetAs<StringObject>("M");

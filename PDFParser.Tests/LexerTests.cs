@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using PDFParser.Parser.IO;
 using PDFParser.Parser.Lexer;
 

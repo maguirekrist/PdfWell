@@ -45,6 +45,8 @@ public class AcroFormFieldDictionary
 
     public List<AcroFormFieldDictionary> Children => _children;
 
+    public WidgetAnnotation? Widget => _widget;
+
     public Boolean IsTerminal => Type != null;
     
     //Required for terminal fields. Inheritable.
