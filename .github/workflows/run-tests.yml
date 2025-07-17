@@ -27,8 +27,10 @@ jobs:
     - name: Build the project
       run: dotnet build --no-restore --configuration Release
 
-    - name: Copy TestPDFs
-      run: cp -r ./PDFParser.Tests/TestPDFs ./PDFParser.Tests/bin/Release/net8.0/TestPDFs
+    - name: Copy TestPDFs to test output directory
+      run: |
+        mkdir -p ./PDFParser.Tests/bin/Release/net8.0/TestPDFs
+        cp -r ./PDFParser.Tests/TestPDFs/* ./PDFParser.Tests/bin/Release/net8.0/TestPDFs/
 
     - name: Run unit tests
       run: dotnet test --no-build --configuration Release --verbosity normal
