@@ -27,5 +27,8 @@ jobs:
     - name: Build the project
       run: dotnet build --no-restore --configuration Release
 
+    - name: Copy TestPDFs
+      run: cp -r ./PDFParser.Tests/TestPDFs ./PDFParser.Tests/bin/Release/net8.0/
+
     - name: Run unit tests
       run: dotnet test --no-build --configuration Release --verbosity normal
