@@ -19,13 +19,13 @@ public class EncryptionHandler
         0x64, 0x53, 0x69, 0x7A
     ];
 
-    private readonly EncryptionDictionary _encryptionDictionary;
+    public EncryptionDictionary EncryptionDictionary { get; }
     private readonly byte[] _fileId;
     private readonly byte[] _encryptionKey;
     public EncryptionHandler(EncryptionDictionary encryptionDictionary, ArrayObject<DirectObject> fileIdArray)
     {
         _fileId = fileIdArray.GetAs<StringObject>(0).Value;
-        _encryptionDictionary = encryptionDictionary;
+        EncryptionDictionary = encryptionDictionary;
         _encryptionKey = GetGlobalEncryptionKey([]);
     }
     
@@ -115,24 +115,24 @@ public class EncryptionHandler
         
         var passwordFull = GetPaddedPassword(password);
         
-        var ownerEntry = _encryptionDictionary.OwnerKey.Value;
+        var ownerEntry = EncryptionDictionary.OwnerKey.Value;
 
         using (var md5 = MD5.Create())
         {
             UpdateMd5(md5, passwordFull);
             
-            UpdateMd5(md5, _encryptionDictionary.OwnerKey.Value);
+            UpdateMd5(md5, EncryptionDictionary.OwnerKey.Value);
             
-            UpdateMd5(md5, BitConverter.GetBytes((int)_encryptionDictionary.PermissionFlags.Value));
+            UpdateMd5(md5, BitConverter.GetBytes((int)EncryptionDictionary.PermissionFlags.Value));
 
             UpdateMd5(md5, _fileId);
 
-            if (_encryptionDictionary.Revision >= 4 && (_encryptionDictionary.EncryptMetadata?.Value == false))
+            if (EncryptionDictionary.Revision >= 4 && (EncryptionDictionary.EncryptMetadata?.Value == false))
             {
                 UpdateMd5(md5, [0xFF, 0xFF, 0xFF, 0xFF]);
             }
 
-            if (_encryptionDictionary.Revision is 3 or 4)
+            if (EncryptionDictionary.Revision is 3 or 4)
             {
                 var n = length;
                 

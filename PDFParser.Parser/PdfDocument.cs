@@ -28,9 +28,15 @@ public class PdfDocument
 
     public List<Page> Pages => _pageTable.Value.Values.ToList();
     public DocumentCatalog DocumentCatalog { get; }
-
     public bool IsLinearized { get; init; } = false;
 
+    public bool IsEncrypted => _encryptionHandler != null;
+
+    public UserAccessPermissions? GetDocumentPermissions()
+    {
+        return _encryptionHandler?.EncryptionDictionary.DocumentPermissions;
+    }
+    
     public Page GetPage(int pageNumber)
     {
         if (pageNumber <= 0)
