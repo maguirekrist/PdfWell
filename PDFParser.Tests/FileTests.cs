@@ -101,10 +101,10 @@ public class Tests
         var document = parser.Parse();
         
         Assert.That(document.Pages.Count, Is.EqualTo(2));
-        foreach (var text in document.Pages[0].GetTexts())
-        {
-            Console.WriteLine(text);
-        }
+        // foreach (var text in document.Pages[0].GetTexts())
+        // {
+        //     Console.WriteLine(text);
+        // }
 
         document.Save("test_bank.pdf");
     }
@@ -118,10 +118,10 @@ public class Tests
         
         Assert.That(document.Pages.Count, Is.EqualTo(1));
         var texts = document.Pages[0].GetTexts();
-        foreach (var text in texts)
-        {
-            Console.WriteLine(text);
-        }
+        // foreach (var text in texts)
+        // {
+        //     Console.WriteLine(text);
+        // }
         Assert.NotNull(texts);
         Assert.True(texts.Count > 0);
 
@@ -138,10 +138,10 @@ public class Tests
         Assert.That(document.Pages.Count, Is.EqualTo(1));
         var texts = document.Pages[0].GetTexts();
 
-        foreach (var text in texts)
-        {
-            Console.WriteLine(text);
-        }
+        // foreach (var text in texts)
+        // {
+        //     Console.WriteLine(text);
+        // }
 
         var acroForm = document.GetAcroForm();
         Assert.That(acroForm, Is.Not.Null);
