@@ -7,7 +7,7 @@ public class LexerTests
 {
 
     private const string A4 = "TestPDFs/A4.pdf";
-    private const string SSA89 = "TestPDFs/SSA-89.pdf";
+    private const string SSA89 = "TestPDFs/ssa-89.pdf";
     
     [Test]
     public void ShouldTokenize()
