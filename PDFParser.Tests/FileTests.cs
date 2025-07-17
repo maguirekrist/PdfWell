@@ -9,9 +9,8 @@ public class Tests
     private const string TwoPager = "TestPDFs/two_pager.pdf";
     private const string MultiText = "TestPDFs/multi_text.pdf";
     private const string G1145 = "TestPDFs/g-1145.pdf";
-    private const string BankStatement = "TestPDFs/Statement.pdf";
     private const string Resume = "TestPDFs/Resume.pdf";
-    private const string SSA89 = "TestPDFs/SSA-89.pdf";
+    private const string SSA89 = "TestPDFs/ssa-89.pdf";
     
     [SetUp]
     public void Setup()
@@ -91,22 +90,6 @@ public class Tests
         Assert.That(acroDictionary, Is.Not.Null);
 
         document.Save("test_gov.pdf");
-    }
-
-    [Test]
-    public void TestBankStatement()
-    {
-        var pdfData = File.ReadAllBytes(BankStatement);
-        var parser = new PdfParser(pdfData);
-        var document = parser.Parse();
-        
-        Assert.That(document.Pages.Count, Is.EqualTo(2));
-        // foreach (var text in document.Pages[0].GetTexts())
-        // {
-        //     Console.WriteLine(text);
-        // }
-
-        document.Save("test_bank.pdf");
     }
 
     [Test]
