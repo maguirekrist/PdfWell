@@ -16,7 +16,7 @@ public class PdfWriter : IDisposable
 
     //Needed to writing xref dict
     private ReferenceObject? _encryptionRef;
-    private ArrayObject<DirectObject>? _fileIdArray;
+    //private ArrayObject<DirectObject>? _fileIdArray;
 
     private readonly int _originalObjectCount;
     
@@ -54,14 +54,19 @@ public class PdfWriter : IDisposable
             var xrefStreamObj = new CrossReferenceStreamDictionary(_objectTable.GetAs<StreamObject>(xrefStreams[0]));
 
             _encryptionRef = xrefStreamObj.EncryptRef;
-            _fileIdArray = xrefStreamObj.IDs;
+            //_fileIdArray = xrefStreamObj.IDs;
         }
 
         foreach (var xrefStreamRef in xrefStreams)
         {
             _objectTable.Remove(xrefStreamRef);
         }
-
+        
+        //Ok, remove the decryption
+        if (_encryptionRef != null)
+        {
+            _objectTable.Remove(_encryptionRef.Reference);
+        }
 
         var orphans = new List<IndirectReference>();
 
@@ -134,7 +139,7 @@ public class PdfWriter : IDisposable
             }
         }
 
-        Debug.Assert((_originalObjectCount + 1) == offsetList.Count);
+        //Debug.Assert((_originalObjectCount + 1) == offsetList.Count);
         
         var startXref = _streamWriter.Position;
         _streamWriter.Write(WriteXref(offsetList));
@@ -167,23 +172,20 @@ public class PdfWriter : IDisposable
         dict.Add(new NameObject("Size"), new NumericObject(objectTable.Count));
         dict.Add(new NameObject("Root"), new ReferenceObject(objectTable.GetCatalogReference()));
         
-        //attempt to find 
-        if (_encryptionRef != null)
-        {
-            dict.Add(new NameObject("Encrypt"), _encryptionRef);
-            dict.Add(new NameObject("ID"), _fileIdArray!);
-        }
-        else
-        {
-            //generate ID
-            var id = Guid.NewGuid().ToByteArray();
-            var hex = BitConverter.ToString(id).Replace("-", "").ToLower();
-            var idArray = new ArrayObject<DirectObject>([
-                StringObject.FromString(hex, isHex: true),
-                StringObject.FromString(hex, isHex: true)
-            ]);
-            dict.Add(new NameObject("ID"), idArray);
-        }
+        //TODO: Re-implement Encryption support.
+        // if (_encryptionRef != null)
+        // {
+        //     dict.Add(new NameObject("Encrypt"), _encryptionRef);
+        //     dict.Add(new NameObject("ID"), _fileIdArray!);
+        // }
+        
+        var id = Guid.NewGuid().ToByteArray();
+        var hex = BitConverter.ToString(id).Replace("-", "").ToLower();
+        var idArray = new ArrayObject<DirectObject>([
+            StringObject.FromString(hex, isHex: true),
+            StringObject.FromString(hex, isHex: true)
+        ]);
+        dict.Add(new NameObject("ID"), idArray);
             
         var dictObj = new DictionaryObject(dict);
 
@@ -277,6 +279,10 @@ public class PdfWriter : IDisposable
     
     private static Span<byte> WriteStringObject(StringObject stringObject)
     {
+        // if (!stringObject.IsHex)
+        // {
+        //     return Encoding.ASCII.GetBytes($"({stringObject.Text})");
+        // }
         return stringObject.Data.Span.ToArray();
     }
 

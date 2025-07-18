@@ -1,3 +1,5 @@
+using System.Globalization;
+using System.Text;
 using PDFParser.Parser.Document.Annotations;
 using PDFParser.Parser.Objects;
 
@@ -48,6 +50,19 @@ public class AcroFormFieldDictionary
     public WidgetAnnotation? Widget => _widget;
 
     public Boolean IsTerminal => Type != null;
+    
+    public string GetValueAsString()
+    {
+        return FieldValue switch
+        {
+            StreamObject streamField => Encoding.UTF8.GetString(streamField.Data),
+            NameObject nameField => nameField.Name,
+            NumericObject numericField => numericField.Value.ToString(CultureInfo.InvariantCulture),
+            StringObject stringField => stringField.Text,
+            null => string.Empty,
+            _ => string.Empty
+        };
+    }
     
     //Required for terminal fields. Inheritable.
     //Btn - Button Fields

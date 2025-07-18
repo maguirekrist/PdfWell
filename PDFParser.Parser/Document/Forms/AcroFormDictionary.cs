@@ -12,12 +12,12 @@ public enum SigFlags
 
 public class AcroFormDictionary
 {
-    private readonly DictionaryObject _dict;
+    public DictionaryObject Dictionary { get; }
     private readonly ObjectTable _objectTable;
     
     public AcroFormDictionary(DictionaryObject formDictionary, ObjectTable objectTable)
     {
-        _dict = formDictionary;
+        Dictionary = formDictionary;
         _objectTable = objectTable;
     }
     public List<AcroFormFieldDictionary> GetFields()
@@ -71,21 +71,22 @@ public class AcroFormDictionary
         fieldObj.Children.AddRange(kidObjects);
     }
 
-    public ArrayObject<DirectObject> FieldReferences => _dict.GetAs<ArrayObject<DirectObject>>("Fields");
+    public ArrayObject<DirectObject> FieldReferences => Dictionary.GetAs<ArrayObject<DirectObject>>("Fields");
 
-    public BooleanObject? NeedAppearances => _dict.TryGetAs<BooleanObject>("NeedAppearances");
+    public BooleanObject? NeedAppearances => Dictionary.TryGetAs<BooleanObject>("NeedAppearances");
 
     //Optional - a set of flags specifying various doc-level characteristics related to signature fields.
-    public NumericObject? SigFlags => _dict.TryGetAs<NumericObject>("SigFlags");
+    public NumericObject? SigFlags => Dictionary.TryGetAs<NumericObject>("SigFlags");
 
-    public ArrayObject<DirectObject>? CalculationOrder => _dict.TryGetAs<ArrayObject<DirectObject>>("CO");
+    public ArrayObject<DirectObject>? CalculationOrder => Dictionary.TryGetAs<ArrayObject<DirectObject>>("CO");
 
-    public DictionaryObject? ResourceDictionary => _dict.TryGetAs<DictionaryObject>("DR");
+    public DictionaryObject? ResourceDictionary => Dictionary.TryGetAs<DictionaryObject>("DR");
 
-    public StringObject? GlobalDefault_DA => _dict.TryGetAs<StringObject>("DA");
+    public StringObject? GlobalDefault_DA => Dictionary.TryGetAs<StringObject>("DA");
 
-    public NumericObject? GlobalDefault_Q => _dict.TryGetAs<NumericObject>("Q");
+    public NumericObject? GlobalDefault_Q => Dictionary.TryGetAs<NumericObject>("Q");
 
-    public DirectObject? XFA => _dict.TryGetAs<DirectObject>("XFA");
+    //This is problematic in some cases... I think?
+    public DirectObject? XFA => Dictionary.TryGetAs<DirectObject>("XFA");
     
 }

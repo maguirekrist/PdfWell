@@ -67,6 +67,18 @@ public class DictionaryObject : DirectObject
         return null;
     }
 
+    public bool TryRemove(string key)
+    {
+        var namedKey = new NameObject(key);
+        if (_dictionary.ContainsKey(namedKey))
+        {
+            _dictionary.Remove(namedKey);
+            return true;
+        }
+
+        return false;
+    }
+
     public bool HasKey(string key)
     {
         var namedKey = new NameObject(key);

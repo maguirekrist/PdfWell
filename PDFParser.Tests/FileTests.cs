@@ -13,6 +13,7 @@ public class Tests
     private const string G1145 = "TestPDFs/g-1145.pdf";
     private const string Resume = "TestPDFs/Resume.pdf";
     private const string SSA89 = "TestPDFs/ssa-89.pdf";
+    private const string SimpleForm = "TestPDFs/test_me.pdf";
     
     [SetUp]
     public void Setup()
@@ -107,6 +108,23 @@ public class Tests
         Assert.True(texts.Count > 0);
 
         document.Save("test_resume.pdf");
+    }
+
+    [Test]
+    public void TestSimpleAcroForm()
+    {
+        var pdfData = File.ReadAllBytes(SimpleForm);
+        var parser = new PdfParser(pdfData);
+        var document = parser.Parse();
+        Assert.That(document.Pages.Count, Is.EqualTo(1));
+        var form = document.GetAcroForm();
+        Assert.That(form, Is.Not.Null);
+
+        var fields = form.GetFields();
+        Assert.That(fields, Is.Not.Empty);
+        Assert.That(fields.Count, Is.EqualTo(1));
+
+        document.Save("simple_form.pdf");
     }
 
     [Test]

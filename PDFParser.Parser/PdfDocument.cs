@@ -115,6 +115,33 @@ public class PdfDocument
 
     public void Save(string path)
     {
+        var acroForm = GetAcroForm();
+
+        if (acroForm?.XFA != null)
+        {
+            //acroForm.Dictionary["NeedAppearances"] = new BooleanObject(true);
+            
+            if (acroForm.XFA is ArrayObject<DirectObject> xfaArr)
+            {
+                var xfaObjects = xfaArr.Objects.OfType<ReferenceObject>().ToList();
+                foreach (var xfaObject in xfaObjects)
+                {
+                    _objectTable.Remove(xfaObject.Reference);
+                }
+            }
+            
+            //Essentially Remove all problematic things from AcroForms working properly. 
+            
+            acroForm.Dictionary.TryRemove("XFA");
+            acroForm.Dictionary.TryRemove("SigFlags");
+
+            //Names is weird, I need to do more research as to what this does.
+            DocumentCatalog.Dictionary.TryRemove("Names");
+            
+            //Perms is very important, this Key-Value can restrict AcroForms from being editable in Acrobat... may be useful later. 
+            DocumentCatalog.Dictionary.TryRemove("Perms");
+        }
+        
         using var writer = new PdfWriter(_objectTable, path);
         writer.Write();
     }

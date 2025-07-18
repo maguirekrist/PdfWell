@@ -4,8 +4,6 @@ namespace PDFParser.Parser.ConceptObjects;
 
 public class ObjectStream
 {
-    //TODO: Handle Object Streams!
-    
     public StreamObject Stream { get; }
     
     public ObjectStream(StreamObject obj)

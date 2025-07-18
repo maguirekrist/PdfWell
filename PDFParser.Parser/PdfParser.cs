@@ -20,7 +20,8 @@ public class PdfParser
     private IndirectReference? _rootRef;
     private ArrayObject<DirectObject>? _fileIdArray;
     private EncryptionHandler? _encryptionHandler;
-    
+
+    private IndirectReference? _currentObject = null;
 
     public PdfParser(byte[] pdfData, IMatcher? matcherStrategy = null)
     {
@@ -60,6 +61,7 @@ public class PdfParser
         {
             var catalogDictionary = ParseObjectByReference(_rootRef.Value);
             if (catalogDictionary is not DictionaryObject dictionary) throw new UnreachableException();
+            _objectTable[_rootRef.Value] = dictionary;
             documentCatalog = new DocumentCatalog(dictionary);
         }
         
@@ -81,13 +83,16 @@ public class PdfParser
             
             try
             {
+                _currentObject = xRef;
                 var obj = ParseObjectByOffset(_memoryReader, offset, out var key);
                 if (obj is StreamObject { Type.Name: "ObjStm" } streamObj)
                 {
                     ParseObjectStream(xRef, new ObjectStream(streamObj));
                 }
             
-                _objectTable.TryAdd(key, obj);
+                Debug.Assert(xRef == key);
+                
+                _objectTable.TryAdd(xRef, obj);
             }
             catch (Exception ex)
             {
@@ -232,10 +237,10 @@ public class PdfParser
     private void ParseObjectStream(IndirectReference reference, ObjectStream objStream)
     {
         var decryptedStream = objStream.Stream.Data;
-        if (_encryptionHandler != null)
-        {
-            decryptedStream = _encryptionHandler.Decrypt(objStream.Stream.Data, reference);
-        }
+        // if (_encryptionHandler != null)
+        // {
+        //     decryptedStream = _encryptionHandler.Decrypt(objStream.Stream.Data, reference);
+        // }
         //Decoding should be handled outside of the class....
         var decodedStream = CompressionHandler.Decompress(decryptedStream, objStream.Stream.Filter, objStream.Stream.DecoderParams);
         var streamReader = new MemoryInputBytes(decodedStream);
@@ -277,13 +282,25 @@ public class PdfParser
         ReadOnlySpan<byte> xrefMarker = "xref"u8;
         if (!inputBytes.Match(xrefMarker))
         {
-            var xrefStream = ParseXrefStream(inputBytes);
-            
-            _encryptionRef = xrefStream.EncryptRef?.Reference;
-            _fileIdArray = xrefStream.IDs;
-            _rootRef = xrefStream.RootRef?.Reference;
-            
-            return ResolveXrefTable(xrefStream);
+            try
+            {
+                var xrefStream = ParseXrefStream(inputBytes);
+
+                _encryptionRef = xrefStream.EncryptRef?.Reference;
+                _fileIdArray = xrefStream.IDs;
+                _rootRef = xrefStream.RootRef?.Reference;
+
+                return ResolveXrefTable(xrefStream);
+            }
+            catch (Exception ex)
+            {
+                //Recover, we are probably within the xref table (statxref is)
+                //Ok - if we are not within the xref stream or anything, it means this PDF is probably malformed. 
+                //However, there is a way to parse malformed pdfs... we just linearly parse the objects in order from
+                //the top of the file to the end. 
+                //inputBytes.RewindUntil(xrefMarker);
+                throw;
+            }
         }
         
         inputBytes.NextLine();
@@ -309,8 +326,7 @@ public class PdfParser
     {
         
         var objectLine = inputBytes.ReadLine();
-        var objectLineStr = Encoding.ASCII.GetString(objectLine);
-        if (!objectLineStr.Contains("obj")) throw new UnreachableException();
+        var _ = ParseObjectLine(objectLine);
         
         //This is an xref stream
         var xrefStreamObj = ParseDirectObject(inputBytes);
@@ -416,7 +432,7 @@ public class PdfParser
         //Beginning of stream
         inputBytes.SkipWhitespace();
         var begin = inputBytes.CurrentOffset;
-        return inputBytes.Slice((int)begin, length);
+        return inputBytes.Slice(begin, length);
     }
 
     private DictionaryObject ParseDictionaryObject(MemoryInputBytes inputBytes)
@@ -620,7 +636,27 @@ public class PdfParser
     {
         var lengthObject = streamDictionary.GetAs<NumericObject>("Length");
         var streamLength = (int)lengthObject.Value;
-        var streamBuffer = GetStreamBuffer(inputBytes, streamLength);
+        var streamBuffer = GetStreamBuffer(inputBytes, streamLength).ToArray();
+        
+        //Decrypt
+        if (_currentObject.HasValue && 
+            _encryptionHandler != null)
+        {
+            var oldBuffer = streamBuffer.ToArray(); 
+            try
+            {
+                streamBuffer = _encryptionHandler?.Decrypt(streamBuffer.ToArray(), _currentObject.Value);
+            }
+            catch (Exception ex)
+            {
+                //Bad Decryption... probably fine?
+                Console.Error.Write(ex.Message);
+                streamBuffer = oldBuffer;
+            }
+        }
+
+        streamDictionary["Length"] = new NumericObject(streamBuffer!.Length);
+        
         inputBytes.Seek(inputBytes.CurrentOffset + streamLength);
         inputBytes.SkipWhitespace();
         var endStreamLine = inputBytes.ReadLine();

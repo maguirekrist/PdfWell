@@ -45,10 +45,10 @@ public class Page
         foreach (var (key, content) in _contents)
         {
             var decryptedStream = content.Data;
-            if (_encryptionHandler != null)
-            {
-                decryptedStream = _encryptionHandler.Decrypt(decryptedStream, key);
-            }
+            // if (_encryptionHandler != null)
+            // {
+            //     decryptedStream = _encryptionHandler.Decrypt(decryptedStream, key);
+            // }
             var stream = CompressionHandler.Decompress(decryptedStream, content.Filter, content.DecoderParams);
             var streamReader = new MemoryInputBytes(stream);
             var parser = new PdfParser(streamReader);
