@@ -122,7 +122,12 @@ public class PdfDocument
     public void Save(System.IO.Stream writeStream)
     {
         var acroForm = GetAcroForm();
-        acroForm!.Dictionary["NeedAppearances"] = new BooleanObject(true);
+
+        if (acroForm != null)
+        {
+            acroForm.Dictionary["NeedAppearances"] = new BooleanObject(true);
+        }
+        
         if (acroForm?.XFA != null)
         {
             
