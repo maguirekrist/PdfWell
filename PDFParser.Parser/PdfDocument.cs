@@ -115,11 +115,16 @@ public class PdfDocument
 
     public void Save(string path)
     {
+        var file = File.Create(path);
+        Save(file);
+    }
+    
+    public void Save(System.IO.Stream writeStream)
+    {
         var acroForm = GetAcroForm();
-
+        acroForm!.Dictionary["NeedAppearances"] = new BooleanObject(true);
         if (acroForm?.XFA != null)
         {
-            //acroForm.Dictionary["NeedAppearances"] = new BooleanObject(true);
             
             if (acroForm.XFA is ArrayObject<DirectObject> xfaArr)
             {
@@ -142,7 +147,8 @@ public class PdfDocument
             DocumentCatalog.Dictionary.TryRemove("Perms");
         }
         
-        using var writer = new PdfWriter(_objectTable, path);
+        
+        using var writer = new PdfWriter(_objectTable, writeStream);
         writer.Write();
     }
 }

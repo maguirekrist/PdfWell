@@ -14,6 +14,8 @@ public class AcroFormDictionary
 {
     public DictionaryObject Dictionary { get; }
     private readonly ObjectTable _objectTable;
+
+    private Dictionary<string, AcroFormFieldDictionary>? _fieldMap;
     
     public AcroFormDictionary(DictionaryObject formDictionary, ObjectTable objectTable)
     {
@@ -22,6 +24,8 @@ public class AcroFormDictionary
     }
     public List<AcroFormFieldDictionary> GetFields()
     {
+        if (_fieldMap != null) return _fieldMap.Values.ToList();
+        
         var fieldList = new List<AcroFormFieldDictionary>();
 
         foreach (var fieldReference in FieldReferences.Objects)
@@ -43,8 +47,27 @@ public class AcroFormDictionary
             fieldList.Add(field);
         }
 
-        return fieldList.Flatten(n => n.Children).Where(x => x.IsTerminal).ToList();
+        var flattenFields = fieldList.Flatten(n => n.Children).Where(x => x.IsTerminal).ToList();
+        _fieldMap = new Dictionary<string, AcroFormFieldDictionary>(flattenFields.Count);
+        foreach (var field in flattenFields)
+        {
+            if (field.FieldName != null)
+            {
+                _fieldMap.TryAdd(field.FieldName, field);
+            }
+        }
+
+        return flattenFields;
     }
+
+    public AcroFormFieldDictionary? GetFieldByName(string fieldName)
+    {
+        if (_fieldMap == null) GetFields();
+
+        _fieldMap!.TryGetValue(fieldName, out var field);
+        return field;
+    }
+    
 
     private void ExploreTree(AcroFormFieldDictionary fieldObj)
     {
@@ -87,6 +110,10 @@ public class AcroFormDictionary
     public NumericObject? GlobalDefault_Q => Dictionary.TryGetAs<NumericObject>("Q");
 
     //This is problematic in some cases... I think?
-    public DirectObject? XFA => Dictionary.TryGetAs<DirectObject>("XFA");
-    
+    public DirectObject? XFA
+    {
+        get => Dictionary.TryGetAs<NumericObject>("XFA");
+        set => Dictionary["XFA"] = value;
+    } 
+
 }

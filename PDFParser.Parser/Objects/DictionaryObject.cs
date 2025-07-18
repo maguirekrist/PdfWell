@@ -70,13 +70,10 @@ public class DictionaryObject : DirectObject
     public bool TryRemove(string key)
     {
         var namedKey = new NameObject(key);
-        if (_dictionary.ContainsKey(namedKey))
-        {
-            _dictionary.Remove(namedKey);
-            return true;
-        }
+        if (!_dictionary.ContainsKey(namedKey)) return false;
+        _dictionary.Remove(namedKey);
+        return true;
 
-        return false;
     }
 
     public bool HasKey(string key)

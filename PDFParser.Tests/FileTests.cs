@@ -12,7 +12,7 @@ public class Tests
     private const string MultiText = "TestPDFs/multi_text.pdf";
     private const string G1145 = "TestPDFs/g-1145.pdf";
     private const string Resume = "TestPDFs/Resume.pdf";
-    private const string SSA89 = "TestPDFs/ssa-89.pdf";
+    private const string Ssa89 = "TestPDFs/ssa-89.pdf";
     private const string SimpleForm = "TestPDFs/test_me.pdf";
     
     [SetUp]
@@ -130,7 +130,7 @@ public class Tests
     [Test]
     public void TestSimpleGovForm()
     {
-        var pdfData = File.ReadAllBytes(SSA89);
+        var pdfData = File.ReadAllBytes(Ssa89);
         var parser = new PdfParser(pdfData);
         var document = parser.Parse();
         

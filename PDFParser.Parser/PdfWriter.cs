@@ -11,7 +11,6 @@ namespace PDFParser.Parser;
 public class PdfWriter : IDisposable
 {
     private readonly ObjectTable _objectTable;
-    private readonly FileStream _file;
     private readonly BufferedStream _streamWriter;
 
     //Needed to writing xref dict
@@ -20,11 +19,10 @@ public class PdfWriter : IDisposable
 
     private readonly int _originalObjectCount;
     
-    public PdfWriter(ObjectTable objectTable, string path)
+    public PdfWriter(ObjectTable objectTable, System.IO.Stream writeStream)
     {
         _objectTable = objectTable;
-        _file = File.Create(path);
-        _streamWriter = new BufferedStream(_file); //We should initialize this with capacity... or something. 
+        _streamWriter = new BufferedStream(writeStream); //We should initialize this with capacity... or something. 
         _originalObjectCount = objectTable.Count;
         Patch();
     }
@@ -342,6 +340,5 @@ public class PdfWriter : IDisposable
         // _memoryStream.Dispose();
         _streamWriter.Flush();
         _streamWriter.Dispose();
-        _file.Dispose();
     }
 }

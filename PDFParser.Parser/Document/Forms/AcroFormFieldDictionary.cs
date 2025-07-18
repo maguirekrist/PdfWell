@@ -49,7 +49,7 @@ public class AcroFormFieldDictionary
 
     public WidgetAnnotation? Widget => _widget;
 
-    public Boolean IsTerminal => Type != null;
+    public bool IsTerminal => mFieldType != null;
     
     public string GetValueAsString()
     {
@@ -63,19 +63,40 @@ public class AcroFormFieldDictionary
             _ => string.Empty
         };
     }
+
+    //Allow to set more than just strings....
+    public void SetValue(string value)
+    {
+        if (FieldType == Forms.FieldType.Text)
+        {
+            this.FieldValue = StringObject.FromString(value);   
+        }
+    }
+
+
+    public FieldType? FieldType => this.mFieldType?.Name switch
+    {
+        "Tx" => Forms.FieldType.Text,
+        "Btn" => Forms.FieldType.Button,
+        "Ch" => Forms.FieldType.Choice,
+        "Sig" => Forms.FieldType.Signature,
+        _ => null
+    };
     
     //Required for terminal fields. Inheritable.
     //Btn - Button Fields
     //Tx - text fields
     //Ch - choice Fields
     //Sig - signature fields
-    public NameObject? Type => _dict.TryGetAs<NameObject>("FT");
+    private NameObject? mFieldType => _dict.TryGetAs<NameObject>("FT");
 
     public DictionaryObject? Parent => _dict.TryGetAs<DictionaryObject>("Parent");
     public ArrayObject<DirectObject> ? Kids => _dict.TryGetAs<ArrayObject<DirectObject> >("Kids");
 
+    public string? FieldName => mFieldName?.Text;
+    
     //The partial field name
-    public StringObject? FieldName => _dict.TryGetAs<StringObject>("T");
+    private StringObject? mFieldName => _dict.TryGetAs<StringObject>("T");
 
     public StringObject? AltDescription => _dict.TryGetAs<StringObject>("TU");
 
@@ -88,7 +109,11 @@ public class AcroFormFieldDictionary
     public FieldFlags? FieldFlags => mFieldFlags != null ? (FieldFlags)((int)mFieldFlags.Value) : null;
     
     //Optional, inheritable, the field's value, whose format varies depending on the field type. 
-    public DirectObject? FieldValue => _dict.TryGetAs<DirectObject>("V");
+    public DirectObject? FieldValue
+    {
+        get => _dict.TryGetAs<DirectObject>("V");
+        private set => _dict["V"] = value;
+    }
 
     //Optional, inheritable, the default value to which the field reverts when a reset-form action is executed.
     //format shall be the same as V.
