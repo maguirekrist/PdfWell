@@ -3,4 +3,5 @@
 using BenchmarkDotNet.Running;
 using PDFParser.Benchmark;
 
-var summary = BenchmarkRunner.Run<DefaultBenchmark>();
+var summary1 = BenchmarkRunner.Run<DefaultBenchmark>();
+var summary2 = BenchmarkRunner.Run<ParserMemoryBenchmark>();
