@@ -31,7 +31,7 @@ public class PdfTokenizer
         {
             start = _reader.CurrentOffset;
             ScanToken();
-            _reader.SkipWhitespace();
+            _reader.SkipAllWhitespace();
         }
 
         return Tokens;

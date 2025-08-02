@@ -363,7 +363,7 @@ public class MemoryInputBytes
         }
     }
 
-    public void SkipWhitespace()
+    public void SkipAllWhitespace()
     {
         //Skips all "whitespace" ASCII codes
         Skip(0, 9, 10, 11, 12, 13, 32);

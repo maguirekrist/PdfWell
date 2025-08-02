@@ -50,9 +50,9 @@ public class UnicodeCharacterMapper : IEncoding
     {
         //1. get the codespace range
         cmapStream.ReadUntil("begincodespacerange"u8);
-        cmapStream.SkipWhitespace();
+        cmapStream.SkipAllWhitespace();
         var begin = PdfParser.ParseStringObject(cmapStream);
-        cmapStream.SkipWhitespace();
+        cmapStream.SkipAllWhitespace();
         var end = PdfParser.ParseStringObject(cmapStream);
         var codePointSize = begin.Value.Length;
         
@@ -66,11 +66,11 @@ public class UnicodeCharacterMapper : IEncoding
         {
             while (!cmapStream.IsAtEnd() && cmapStream.CurrentChar != 'e')
             {
-                cmapStream.SkipWhitespace();
+                cmapStream.SkipAllWhitespace();
                 var from = PdfParser.ParseStringObject(cmapStream);
-                cmapStream.SkipWhitespace();
+                cmapStream.SkipAllWhitespace();
                 var to = PdfParser.ParseStringObject(cmapStream);
-                cmapStream.SkipWhitespace();
+                cmapStream.SkipAllWhitespace();
                 AddCharacterCode(from, to);
             }   
         }
@@ -85,13 +85,13 @@ public class UnicodeCharacterMapper : IEncoding
         {
             while (!cmapStream.IsAtEnd() && cmapStream.CurrentChar != 'e')
             {
-                cmapStream.SkipWhitespace();
+                cmapStream.SkipAllWhitespace();
                 var from = PdfParser.ParseStringObject(cmapStream);
-                cmapStream.SkipWhitespace();
+                cmapStream.SkipAllWhitespace();
                 var to = PdfParser.ParseStringObject(cmapStream);
-                cmapStream.SkipWhitespace();
+                cmapStream.SkipAllWhitespace();
                 var unicodeBegin = PdfParser.ParseStringObject(cmapStream);
-                cmapStream.SkipWhitespace();
+                cmapStream.SkipAllWhitespace();
                 AddCharacterRange(from, to, unicodeBegin);
             }   
         }

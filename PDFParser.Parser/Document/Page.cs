@@ -75,7 +75,7 @@ public class Page
                     {
                         
                         tempList.Add(parser.ParseDirectObject(streamReader));
-                        streamReader.SkipWhitespace();
+                        streamReader.SkipAllWhitespace();
                     }
 
                     if (streamReader.CurrentChar == 'T')
@@ -122,7 +122,7 @@ public class Page
                     }
      
                     streamReader.MoveNext();
-                    streamReader.SkipWhitespace();
+                    streamReader.SkipAllWhitespace();
                 }
      
                 TextState textState = new();

@@ -14,6 +14,7 @@ public class Tests
     private const string Resume = "TestPDFs/Resume.pdf";
     private const string Ssa89 = "TestPDFs/ssa-89.pdf";
     private const string SimpleForm = "TestPDFs/test_me.pdf";
+    private const string I130 = "TestPDFs/i-130.pdf";
     
     [SetUp]
     public void Setup()
@@ -164,6 +165,45 @@ public class Tests
         Assert.That(rects, Is.Not.Empty);
         
         document.Save("test_gov2.pdf");
+    }
+
+    [Test]
+    public void TestI130()
+    {
+        var pdfData = File.ReadAllBytes(I130);
+        var parser = new PdfParser(pdfData);
+        var document = parser.Parse();
+        
+        Assert.That(document.Pages.Count, Is.Not.EqualTo(0));
+        //var texts = document.Pages[0].GetTexts();
+
+        //Assert.That(texts, Is.Not.Empty);
+        
+        var acroForm = document.GetAcroForm();
+        Assert.That(acroForm, Is.Not.Null);
+        var fields = acroForm.GetFields();
+        Assert.That(fields, Is.Not.Empty);
+
+
+        List<Rectangle> rects = new();
+        foreach (var field in fields)
+        {
+            var fieldWidget = field.Widget;
+            if (fieldWidget != null)
+            {
+                var rectArray = fieldWidget.Rect;
+                rects.Add(Rectangle.FromPdfArray(rectArray));
+                
+                var page = fieldWidget.Page as ReferenceObject;
+                var pageObj = document.GetPage(page!.Reference);
+                
+                Assert.That(pageObj, Is.Not.Null);
+            }
+        }
+        
+        Assert.That(rects, Is.Not.Empty);
+        
+        document.Save("test_gov3.pdf");
     }
     
 }

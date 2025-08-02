@@ -68,8 +68,6 @@ public class PdfParser
         if (_encryptionRef.HasValue)
         {
             var obj = ParseObjectByReference(_encryptionRef.Value);   
-            // xrefTable.TryGetValue(_encryptionRef.Value, out var offsetVal);
-            // var obj = ParseObjectByOffset(_memoryReader, offsetVal, out var _);
             if (obj is DictionaryObject dict)
             {
                 var encryptionDict = new EncryptionDictionary(dict);
@@ -181,7 +179,7 @@ public class PdfParser
     private DirectObject GetNextObject(MemoryInputBytes inputBytes)
     {
         var objOffset = inputBytes.FindFirstPatternOffset("obj"u8);
-        inputBytes.SkipWhitespace();
+        inputBytes.SkipAllWhitespace();
         return ParseDirectObject(inputBytes);
     }
     
@@ -252,9 +250,9 @@ public class PdfParser
         {
             var objNumberBytes = streamReader.ReadNumeric();
             int.TryParse(objNumberBytes, out var objNumber);
-            streamReader.SkipWhitespace();
+            streamReader.SkipAllWhitespace();
             int.TryParse(streamReader.ReadNumeric(), out var objOffset);
-            streamReader.SkipWhitespace();
+            streamReader.SkipAllWhitespace();
             objectsInStream.Add(new IndirectReference(objNumber), objOffset);
         }
 
@@ -421,7 +419,7 @@ public class PdfParser
     
     private static ReadOnlyMemory<byte> GetStreamBuffer(MemoryInputBytes inputBytes, int length)
     {
-        inputBytes.SkipWhitespace();
+        inputBytes.SkipAllWhitespace();
         var key = "stream"u8;
         if (!inputBytes.Match(key))
         {
@@ -429,8 +427,15 @@ public class PdfParser
         }
         inputBytes.Move(key.Length);
 
-        //Beginning of stream
-        inputBytes.SkipWhitespace();
+        //According to the Spec is it really important to only read up to TWO new-line characters after the 'stream' keyword. 
+        //Encrypted streams need to be aligned to byte boundaries, and some PDF producers use new-line characters as padding.
+        var count = 0;
+        while (inputBytes.IsAtNewLine() && count < 2)
+        {
+            inputBytes.MoveNext();
+            count++;
+        }
+        
         var begin = inputBytes.CurrentOffset;
         return inputBytes.Slice(begin, length);
     }
@@ -598,7 +603,7 @@ public class PdfParser
         while (inputBytes.CurrentChar != ']')
         {
             objects.Add(ParseDirectObject(inputBytes));
-            inputBytes.SkipWhitespace();
+            inputBytes.SkipAllWhitespace();
         }
 
         inputBytes.MoveNext(); //Move out
@@ -650,7 +655,7 @@ public class PdfParser
             catch (Exception ex)
             {
                 //Bad Decryption... probably fine?
-                Console.Error.Write(ex.Message);
+                Console.Error.WriteLine(ex.Message);
                 streamBuffer = oldBuffer;
             }
         }
@@ -658,7 +663,7 @@ public class PdfParser
         streamDictionary["Length"] = new NumericObject(streamBuffer!.Length);
         
         inputBytes.Seek(inputBytes.CurrentOffset + streamLength);
-        inputBytes.SkipWhitespace();
+        inputBytes.SkipAllWhitespace();
         var endStreamLine = inputBytes.ReadLine();
         Debug.Assert(endStreamLine.SequenceEqual("endstream"u8));
 
@@ -676,7 +681,7 @@ public class PdfParser
                     {
                         var dictionary = ParseDictionaryObject(inputBytes);
                         //TODO: Make into it's own function? Repeated code.
-                        inputBytes.SkipWhitespace();
+                        inputBytes.SkipAllWhitespace();
                         if (dictionary.HasLength && inputBytes.Match("stream"u8))
                         {
                             return ParseStreamObject(inputBytes, dictionary);
@@ -706,7 +711,7 @@ public class PdfParser
                     //null object, which is odd but some pdf's have them
                     return ParseNullObject(inputBytes);
                 case var other when char.IsWhiteSpace(other):
-                    inputBytes.SkipWhitespace();
+                    inputBytes.SkipAllWhitespace();
                     return ParseDirectObject(inputBytes);
                 default:
                     throw new UnexpectedTokenException(inputBytes);
