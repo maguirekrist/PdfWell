@@ -22,7 +22,8 @@
     </ItemGroup>
 
     <ItemGroup>
-      <Content Include="TestPDFs\**\*">
+      <Content Include="..\TestPDFs\**\*">
+          <Link>TestPDFs\%(RecursiveDir)%(Filename)%(Extension)</Link>
           <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       </Content>
     </ItemGroup>

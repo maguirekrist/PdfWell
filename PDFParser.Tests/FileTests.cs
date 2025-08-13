@@ -5,6 +5,20 @@ using PDFParser.Parser.Objects;
 
 namespace PDFParser.Tests;
 
+public static class PdfCases
+{
+    public static IEnumerable<string> Files()
+    {
+        var root = Path.Combine(TestContext.CurrentContext.TestDirectory, "TestPdfs");
+        if (!Directory.Exists(root))
+            yield break;
+
+        // Deterministic order helps with debugging
+        foreach (var p in Directory.EnumerateFiles(root, "*.pdf", SearchOption.AllDirectories).OrderBy(x => x))
+            yield return p;
+    }
+}
+
 public class Tests
 {
     private const string A4 = "TestPDFs/A4.pdf";
@@ -16,11 +30,26 @@ public class Tests
     private const string SimpleForm = "TestPDFs/test_me.pdf";
     private const string I130 = "TestPDFs/i-130.pdf";
     
+    
+    
     [SetUp]
     public void Setup()
     {
     }
-
+    
+    [TestCaseSource(typeof(PdfCases), nameof(PdfCases.Files))]
+    public void ParsePdf_should_not_throw(string pdfPath)
+    {
+        Assert.That(File.Exists(pdfPath), Is.True);
+        var pdfData = File.ReadAllBytes(pdfPath);
+        var parser = new PdfParser(pdfData);
+        var document = parser.Parse();
+        
+        Assert.That(document, Is.Not.Null);
+        Assert.That(document.Pages, Is.Not.Null);
+        Assert.That(document.Pages, Is.Not.Empty);
+    }
+    
     [Test]
     public void XrefMatcherText()
     {

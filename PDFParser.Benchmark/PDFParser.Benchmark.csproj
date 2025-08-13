@@ -13,11 +13,11 @@
         <ProjectReference Include="..\PDFParser.Parser\PDFParser.Parser.csproj" />
     </ItemGroup>
 
-    <ItemGroup>
-        <Content Include="TestPDFs\**\*">
-            <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-        </Content>
-    </ItemGroup>
+<!--    <ItemGroup>-->
+<!--        <Content Include="TestPDFs\**\*">-->
+<!--            <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>-->
+<!--        </Content>-->
+<!--    </ItemGroup>-->
 
     <ItemGroup>
       <PackageReference Include="BenchmarkDotNet" Version="0.14.0" />
