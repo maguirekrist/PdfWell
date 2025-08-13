@@ -114,6 +114,10 @@ public class MemoryInputBytes
 
     public void Seek(int position)
     {
+        if (position >= _upperbound)
+        {
+            throw new ArgumentOutOfRangeException(nameof(position));
+        }
         _currentOffset = position;
     }
 

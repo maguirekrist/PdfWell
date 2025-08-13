@@ -49,6 +49,15 @@ public class Tests
         Assert.That(document.Pages, Is.Not.Null);
         Assert.That(document.Pages, Is.Not.Empty);
     }
+
+    [Test]
+    public void TestStrangePdf()
+    {
+        Assert.That(File.Exists("TestPDFs/fw9.pdf"), Is.True);
+        var pdfData = File.ReadAllBytes("TestPDFs/fw9.pdf");
+        var parser = new PdfParser(pdfData);
+        var document = parser.Parse();
+    }
     
     [Test]
     public void XrefMatcherText()

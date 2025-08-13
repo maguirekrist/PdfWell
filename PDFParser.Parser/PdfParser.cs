@@ -78,6 +78,12 @@ public class PdfParser
         foreach (var (xRef, offset) in _crossReferenceTable)
         {
             if (_objectTable.ContainsKey(xRef)) continue;
+
+            if (offset == 0)
+            {
+                //skip
+                continue;
+            }
             
             try
             {
@@ -88,7 +94,12 @@ public class PdfParser
                     ParseObjectStream(xRef, new ObjectStream(streamObj));
                 }
             
-                Debug.Assert(xRef == key);
+                //Debug.Assert(xRef == key);
+                if (xRef != key)
+                {
+                    Console.WriteLine($@"tried parsing {xRef} but parsed {key}");
+                    continue;
+                }
                 
                 _objectTable.TryAdd(xRef, obj);
             }
@@ -258,6 +269,13 @@ public class PdfParser
 
         foreach (var (objRef, offset) in objectsInStream)
         {
+            //If object has already been parsed, what do we do?
+            if (_objectTable.ContainsKey(objRef))
+            {
+                Console.WriteLine($@"Object {objRef} was already in object table.");
+                continue;
+            }
+            
             try
             {
                 streamReader.Seek(beginOffset + offset);
@@ -338,12 +356,12 @@ public class PdfParser
             throw new Exception("Expected a xref stream object but got something else");
         }
 
-        var encryptRef = xrefStreamDict.TryGetAs<ReferenceObject>("Encrypt");
-        if (encryptRef != null)
-        {
-            //Parse and build encryption dictionary object
-            //throw new Exception("WOW!");
-        }
+        // var encryptRef = xrefStreamDict.TryGetAs<ReferenceObject>("Encrypt");
+        // if (encryptRef != null)
+        // {
+        //     //Parse and build encryption dictionary object
+        //     //throw new Exception("WOW!");
+        // }
         
         //This is a xref stream object!
         return new CrossReferenceStreamDictionary(xrefStreamDict);
@@ -352,20 +370,26 @@ public class PdfParser
     private CrossReferenceTable ResolveXrefTable(CrossReferenceStreamDictionary xrefStream)
     {
         var xrefTable = new CrossReferenceTable();
+        var xrefStack = new Stack<CrossReferenceStreamDictionary>();
         
-        //Check for Previous XRef stream
+        xrefStack.Push(xrefStream);
+        
         var prevXrefStream = xrefStream.PreviousXrefStream;
         while (prevXrefStream != null)
         {
             _memoryReader.Seek((int)prevXrefStream.Value);
             var prevStream = ParseXrefStream(_memoryReader);
-            var tempTable = XrefTableFactory.Build(prevStream);
-            xrefTable.Extend(tempTable);
+            xrefStack.Push(prevStream);
             prevXrefStream = prevStream.PreviousXrefStream;
         }
 
-        var mainTable = XrefTableFactory.Build(xrefStream);
-        xrefTable.Extend(mainTable);
+        while (xrefStack.Any())
+        {
+            var xrefDict = xrefStack.Pop();
+            var tempTable = XrefTableFactory.Build(xrefDict);
+            xrefTable.Extend(tempTable);
+        }
+        
         return xrefTable;
     }
 

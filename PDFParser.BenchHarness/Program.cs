@@ -85,5 +85,5 @@ static string FindSolutionRoot()
     return dir.FullName;
 }
 
-Console.WriteLine($"Count={elapsed.Count}  p50={Q(0.50):F2} ms  p95={Q(0.95):F2} ms  PeakRSS={(peakWorkingSet/1024.0/1024.0):F1} MB");
-Console.WriteLine($"CSV: {csvPath}");
+Console.WriteLine($@"Count={elapsed.Count}  p50={Q(0.50):F2} ms  p95={Q(0.95):F2} ms  PeakRSS={(peakWorkingSet/1024.0/1024.0):F1} MB");
+Console.WriteLine($@"CSV: {csvPath}");
